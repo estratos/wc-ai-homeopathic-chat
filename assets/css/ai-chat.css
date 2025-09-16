@@ -1,240 +1,61 @@
-.wc-ai-chat-container {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    z-index: 9999;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-}
-
-.wc-ai-chat-button {
-    background: #4CAF50;
-    color: white;
-    border: none;
-    border-radius: 50%;
-    width: 60px;
-    height: 60px;
-    cursor: pointer;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
-    transition: all 0.3s ease;
-}
-
-.wc-ai-chat-button:hover {
-    background: #45a049;
-    transform: scale(1.05);
-}
-
-.wc-ai-chat-window {
-    position: absolute;
-    bottom: 70px;
-    right: 0;
-    width: 350px;
-    height: 500px;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    transform: translateY(20px);
-    opacity: 0;
-    transition: all 0.3s ease;
-}
-
-.wc-ai-chat-window.active {
-    transform: translateY(0);
-    opacity: 1;
-}
-
-.wc-ai-chat-header {
-    background: #4CAF50;
-    color: white;
-    padding: 15px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.wc-ai-chat-header h3 {
-    margin: 0;
-    font-size: 16px;
-}
-
-.wc-ai-chat-close {
-    background: none;
-    border: none;
-    color: white;
-    font-size: 20px;
-    cursor: pointer;
-}
-
-.wc-ai-chat-messages {
-    flex: 1;
-    padding: 15px;
-    overflow-y: auto;
-    background: #f8f9fa;
-}
-
-.wc-ai-message {
-    margin-bottom: 15px;
-    display: flex;
-}
-
-.wc-ai-message.user {
-    justify-content: flex-end;
-}
-
-.wc-ai-message-bubble {
-    max-width: 80%;
-    padding: 10px 15px;
-    border-radius: 18px;
-    word-wrap: break-word;
-}
-
-.wc-ai-message.ai .wc-ai-message-bubble {
-    background: white;
-    border: 1px solid #e0e0e0;
-    border-bottom-left-radius: 4px;
-}
-
-.wc-ai-message.user .wc-ai-message-bubble {
-    background: #4CAF50;
-    color: white;
-    border-bottom-right-radius: 4px;
-}
-
-.wc-ai-chat-input {
-    padding: 15px;
-    border-top: 1px solid #e0e0e0;
-    background: white;
-}
-
-.wc-ai-chat-input-form {
-    display: flex;
-    gap: 10px;
-}
-
-.wc-ai-chat-input-field {
-    flex: 1;
-    padding: 12px;
-    border: 1px solid #ddd;
-    border-radius: 24px;
-    outline: none;
-    font-size: 14px;
-}
-
-.wc-ai-chat-input-field:focus {
-    border-color: #4CAF50;
-}
-
-.wc-ai-chat-send-button {
-    background: #4CAF50;
-    color: white;
-    border: none;
-    border-radius: 24px;
-    padding: 12px 20px;
-    cursor: pointer;
-    font-size: 14px;
-}
-
-.wc-ai-chat-send-button:hover {
-    background: #45a049;
-}
-
-.wc-ai-loading {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    color: #666;
-    font-style: italic;
-}
-
-.wc-ai-loading-dots {
-    display: flex;
-    gap: 4px;
-}
-
-.wc-ai-loading-dots span {
-    width: 6px;
-    height: 6px;
-    background: #666;
-    border-radius: 50%;
-    animation: bounce 1.5s infinite ease-in-out;
-}
-
-.wc-ai-loading-dots span:nth-child(2) {
-    animation-delay: 0.2s;
-}
-
-.wc-ai-loading-dots span:nth-child(3) {
-    animation-delay: 0.4s;
-}
-
-@keyframes bounce {
-    0%, 80%, 100% { transform: scale(0); }
-    40% { transform: scale(1); }
-}
-
-.wc-ai-recommended-products {
-    margin-top: 15px;
-    border-top: 1px solid #e0e0e0;
-    padding-top: 15px;
-}
-
-.wc-ai-product-card {
-    background: white;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    padding: 12px;
-    margin-bottom: 10px;
-    display: flex;
-    gap: 12px;
-    align-items: center;
-}
-
-.wc-ai-product-image {
-    width: 50px;
-    height: 50px;
-    border-radius: 4px;
-    object-fit: cover;
-}
-
-.wc-ai-product-info {
-    flex: 1;
-}
-
-.wc-ai-product-name {
-    font-weight: 600;
-    margin: 0 0 5px 0;
-    font-size: 14px;
-}
-
-.wc-ai-product-price {
-    color: #4CAF50;
-    font-weight: 600;
-    font-size: 14px;
-    margin: 0 0 5px 0;
-}
-
-.wc-ai-product-description {
-    font-size: 12px;
-    color: #666;
-    margin: 0;
-}
-
-.wc-ai-product-link {
-    background: #4CAF50;
-    color: white;
-    text-decoration: none;
-    padding: 6px 12px;
-    border-radius: 4px;
-    font-size: 12px;
-    white-space: nowrap;
-}
-
-.wc-ai-product-link:hover {
-    background: #45a049;
-}
+jQuery(document).ready(function($) {
+    'use strict';
+    
+    // Crear elementos básicos del chat
+    const chatHTML = `
+        <div class="wc-ai-chat-container">
+            <button class="wc-ai-chat-button">💬</button>
+            <div class="wc-ai-chat-window">
+                <div class="wc-ai-chat-header">
+                    <h3>Asistente Homeopático</h3>
+                    <button class="wc-ai-chat-close">×</button>
+                </div>
+                <div class="wc-ai-chat-messages"></div>
+                <div class="wc-ai-chat-input">
+                    <form class="wc-ai-chat-input-form">
+                        <input type="text" class="wc-ai-chat-input-field" placeholder="Describe tus síntomas..." required>
+                        <button type="submit" class="wc-ai-chat-send-button">Enviar</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    $('body').append(chatHTML);
+    
+    const chatButton = $('.wc-ai-chat-button');
+    const chatWindow = $('.wc-ai-chat-window');
+    const chatMessages = $('.wc-ai-chat-messages');
+    const chatForm = $('.wc-ai-chat-input-form');
+    const chatInput = $('.wc-ai-chat-input-field');
+    const closeButton = $('.wc-ai-chat-close');
+    
+    // Toggle chat window
+    chatButton.on('click', function() {
+        chatWindow.toggleClass('active');
+        if (chatWindow.hasClass('active')) {
+            chatInput.focus();
+        }
+    });
+    
+    closeButton.on('click', function() {
+        chatWindow.removeClass('active');
+    });
+    
+    // Handle form submission
+    chatForm.on('submit', function(e) {
+        e.preventDefault();
+        
+        const message = chatInput.val().trim();
+        if (!message) return;
+        
+        // Add user message
+        chatMessages.append('<div>Usuario: ' + message + '</div>');
+        chatInput.val('');
+        
+        // Simulate AI response
+        setTimeout(function() {
+            chatMessages.append('<div>Asistente: He recibido tu mensaje. Configura la API key para respuestas reales.</div>');
+        }, 1000);
+    });
+});
