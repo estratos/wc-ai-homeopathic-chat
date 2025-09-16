@@ -17,13 +17,6 @@ define('WC_AI_CHAT_VERSION', '1.0.0');
 define('WC_AI_CHAT_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('WC_AI_CHAT_PLUGIN_PATH', plugin_dir_path(__FILE__));
 
-// Incluir clases necesarias
-require_once WC_AI_CHAT_PLUGIN_PATH . 'includes/class-ai-chat-admin.php';
-require_once WC_AI_CHAT_PLUGIN_PATH . 'includes/class-ai-chat-frontend.php';
-require_once WC_AI_CHAT_PLUGIN_PATH . 'includes/class-product-analyzer.php';
-require_once WC_AI_CHAT_PLUGIN_PATH . 'includes/class-ai-handler.php';
-require_once WC_AI_CHAT_PLUGIN_PATH . 'includes/class-chat-sessions.php';
-
 class WC_AI_Homeopathic_Chat {
     
     private static $instance = null;
@@ -47,18 +40,22 @@ class WC_AI_Homeopathic_Chat {
     }
     
     public function init() {
+        // Verificar si WooCommerce está activo
         if (!class_exists('WooCommerce')) {
             add_action('admin_notices', array($this, 'woocommerce_missing_notice'));
             return;
         }
         
+        // Incluir clases necesarias
+        $this->include_dependencies();
+        
+        // Inicializar componentes
         $this->product_analyzer = new Product_Analyzer();
         $this->ai_handler = new AI_Handler();
         $this->chat_sessions = new Chat_Sessions();
         $this->admin = new AI_Chat_Admin();
         $this->frontend = new AI_Chat_Frontend();
         
-        // Inicializar componentes
         $this->product_analyzer->init();
         $this->ai_handler->init();
         $this->chat_sessions->init();
@@ -69,22 +66,53 @@ class WC_AI_Homeopathic_Chat {
         load_plugin_textdomain('wc-ai-homeopathic-chat', false, dirname(plugin_basename(__FILE__)) . '/languages');
     }
     
+    private function include_dependencies() {
+        require_once WC_AI_CHAT_PLUGIN_PATH . 'includes/class-product-analyzer.php';
+        require_once WC_AI_CHAT_PLUGIN_PATH . 'includes/class-ai-handler.php';
+        require_once WC_AI_CHAT_PLUGIN_PATH . 'includes/class-chat-sessions.php';
+        require_once WC_AI_CHAT_PLUGIN_PATH . 'includes/class-ai-chat-admin.php';
+        require_once WC_AI_CHAT_PLUGIN_PATH . 'includes/class-ai-chat-frontend.php';
+    }
+    
     public function activate() {
-        // Crear tablas necesarias para las sesiones de chat
-        $this->chat_sessions->create_tables();
+        // Verificar WooCommerce primero
+        if (!class_exists('WooCommerce')) {
+            deactivate_plugins(plugin_basename(__FILE__));
+            wp_die(__('Este plugin requiere WooCommerce. Por favor instala y activa WooCommerce primero.', 'wc-ai-homeopathic-chat'));
+        }
         
-        // Analizar productos existentes
-        $this->product_analyzer->analyze_all_products();
+        // Incluir clases necesarias para la activación
+        $this->include_dependencies();
+        
+        // Crear tablas necesarias para las sesiones de chat
+        $chat_sessions = new Chat_Sessions();
+        $chat_sessions->create_tables();
+        
+        // Analizar productos existentes (solo si WooCommerce está activo)
+        if (class_exists('WooCommerce')) {
+            $product_analyzer = new Product_Analyzer();
+            $product_analyzer->analyze_all_products();
+        }
     }
     
     public function deactivate() {
-        // Limpiar si es necesario
+        // Limpiar opciones si es necesario
+        // delete_option('wc_ai_chat_products_analyzed');
     }
     
     public function woocommerce_missing_notice() {
-        echo '<div class="error"><p>';
-        echo __('WC AI Homeopathic Chat requiere que WooCommerce esté instalado y activado.', 'wc-ai-homeopathic-chat');
-        echo '</p></div>';
+        ?>
+        <div class="error">
+            <p>
+                <?php 
+                printf(
+                    __('WC AI Homeopathic Chat requiere que %s esté instalado y activado.', 'wc-ai-homeopathic-chat'),
+                    '<a href="https://woocommerce.com/" target="_blank">WooCommerce</a>'
+                ); 
+                ?>
+            </p>
+        </div>
+        <?php
     }
     
     public function get_product_analyzer() {
@@ -101,4 +129,13 @@ class WC_AI_Homeopathic_Chat {
 }
 
 // Inicializar el plugin
-WC_AI_Homeopathic_Chat::get_instance();
+function wc_ai_homeopathic_chat() {
+    return WC_AI_Homeopathic_Chat::get_instance();
+}
+
+// Iniciar el plugin después de que WordPress cargue
+add_action('plugins_loaded', 'wc_ai_homeopathic_chat_init');
+
+function wc_ai_homeopathic_chat_init() {
+    wc_ai_homeopathic_chat();
+}
