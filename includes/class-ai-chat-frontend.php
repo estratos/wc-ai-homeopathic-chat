@@ -1,11 +1,22 @@
 <?php
 class AI_Chat_Frontend {
     
+    private $nonce_action = 'wc_ai_chat_frontend_nonce_action';
+    
     public function init() {
         add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
         add_action('wp_footer', array($this, 'render_chat_interface'));
         add_action('wp_ajax_wc_ai_chat_send_message', array($this, 'handle_chat_message'));
         add_action('wp_ajax_nopriv_wc_ai_chat_send_message', array($this, 'handle_chat_message'));
+        
+        // Debug temporal
+        add_action('init', array($this, 'debug_nonce'));
+    }
+    
+    public function debug_nonce() {
+        if (isset($_GET['debug_nonce'])) {
+            error_log('Current nonce: ' . wp_create_nonce($this->nonce_action));
+        }
     }
     
     public function enqueue_scripts() {
@@ -13,7 +24,6 @@ class AI_Chat_Frontend {
             return;
         }
         
-        // Solo cargar en páginas relevantes
         if (!$this->should_load_chat()) {
             return;
         }
@@ -21,14 +31,13 @@ class AI_Chat_Frontend {
         wp_enqueue_style('wc-ai-chat-style', WC_AI_CHAT_PLUGIN_URL . 'assets/css/ai-chat.css', array(), WC_AI_CHAT_VERSION);
         wp_enqueue_script('wc-ai-chat-script', WC_AI_CHAT_PLUGIN_URL . 'assets/js/ai-chat.js', array('jquery'), WC_AI_CHAT_VERSION, true);
         
-        // Pasar variables a JavaScript
         wp_localize_script('wc-ai-chat-script', 'wc_ai_chat_params', $this->get_js_params());
     }
     
     private function get_js_params() {
         return array(
             'ajax_url' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('wc_ai_chat_frontend_nonce'),
+            'nonce' => wp_create_nonce($this->nonce_action),
             'placeholder_image' => WC()->plugin_url() . '/assets/images/placeholder.png',
             'loading_text' => __('Pensando...', 'wc-ai-homeopathic-chat'),
             'error_text' => __('Error de conexión. Intenta nuevamente.', 'wc-ai-homeopathic-chat')
@@ -36,18 +45,15 @@ class AI_Chat_Frontend {
     }
     
     private function should_load_chat() {
-        // Verificar si WooCommerce está activo
         if (!class_exists('WooCommerce')) {
             return false;
         }
         
-        // Verificar si el chat está habilitado
         $enabled = get_option('wc_ai_chat_enabled', '1');
         if ($enabled !== '1') {
             return false;
         }
         
-        // Cargar solo en páginas relevantes
         return is_shop() || is_product_category() || is_product() || is_page() || is_front_page();
     }
     
@@ -61,18 +67,23 @@ class AI_Chat_Frontend {
     }
     
     public function handle_chat_message() {
+        header('Content-Type: application/json');
+        
         try {
             // Verificar nonce
-            if (!check_ajax_referer('wc_ai_chat_frontend_nonce', 'nonce', false)) {
-                throw new Exception('Error de seguridad. Nonce inválido.');
+            if (!isset($_POST['nonce'])) {
+                throw new Exception('Nonce no proporcionado.');
             }
             
-            // Verificar método HTTP
-            if ('POST' !== $_SERVER['REQUEST_METHOD']) {
-                throw new Exception('Método no permitido.');
+            $nonce = sanitize_text_field($_POST['nonce']);
+            
+            if (!wp_verify_nonce($nonce, $this->nonce_action)) {
+                error_log('Nonce verification failed. Received: ' . $nonce);
+                error_log('Expected: ' . wp_create_nonce($this->nonce_action));
+                throw new Exception('Error de seguridad. Por favor recarga la página.');
             }
             
-            // Verificar que el mensaje existe
+            // Verificar mensaje
             if (!isset($_POST['message'])) {
                 throw new Exception('Mensaje no proporcionado.');
             }
@@ -85,7 +96,7 @@ class AI_Chat_Frontend {
             
             $session_id = isset($_POST['session_id']) ? sanitize_text_field($_POST['session_id']) : '';
             
-            // Procesar el mensaje
+            // Procesar mensaje
             $product_analyzer = new Product_Analyzer();
             $matched_products = $product_analyzer->find_products_by_query($user_message);
             
@@ -96,7 +107,7 @@ class AI_Chat_Frontend {
                 throw new Exception($response['error']);
             }
             
-            // Preparar respuesta exitosa
+            // Respuesta exitosa
             $result = array(
                 'response' => $response['response'],
                 'products' => $this->prepare_products_response($matched_products)
@@ -116,7 +127,7 @@ class AI_Chat_Frontend {
             ), 400);
         }
         
-        wp_die(); // Siempre terminar con wp_die() en AJAX
+        wp_die();
     }
     
     private function prepare_products_response($products) {

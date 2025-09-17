@@ -3,6 +3,10 @@
     
     const WC_AIChat = {
         init: function() {
+            console.log('WC AI Chat initialized');
+            console.log('Nonce:', wc_ai_chat_params.nonce);
+            console.log('AJAX URL:', wc_ai_chat_params.ajax_url);
+            
             this.createChat();
             this.bindEvents();
             this.sessionId = 'chat_' + Date.now();
@@ -42,7 +46,6 @@
         bindEvents: function() {
             const self = this;
             
-            // Toggle chat
             $('#wc-ai-chat-button').on('click', function() {
                 $('#wc-ai-chat-window').toggleClass('active');
                 if ($('#wc-ai-chat-window').hasClass('active')) {
@@ -50,12 +53,10 @@
                 }
             });
             
-            // Close chat
             $('.wc-ai-chat-close').on('click', function() {
                 $('#wc-ai-chat-window').removeClass('active');
             });
             
-            // Form submit
             $('.wc-ai-chat-input-form').on('submit', function(e) {
                 e.preventDefault();
                 self.handleSubmit($(this));
@@ -112,17 +113,26 @@
         sendMessage: function(message) {
             const self = this;
             
+            console.log('Sending message:', message);
+            console.log('With nonce:', wc_ai_chat_params.nonce);
+            console.log('Session ID:', this.sessionId);
+            
+            const formData = {
+                action: 'wc_ai_chat_send_message',
+                message: message,
+                session_id: this.sessionId,
+                nonce: wc_ai_chat_params.nonce
+            };
+            
+            console.log('Form data:', formData);
+            
             $.ajax({
                 url: wc_ai_chat_params.ajax_url,
                 type: 'POST',
                 dataType: 'json',
-                data: {
-                    action: 'wc_ai_chat_send_message',
-                    message: message,
-                    session_id: this.sessionId,
-                    nonce: wc_ai_chat_params.nonce
-                },
+                data: formData,
                 success: function(response) {
+                    console.log('AJAX Success:', response);
                     self.removeLoading();
                     
                     if (response.success && response.data) {
@@ -132,6 +142,8 @@
                     }
                 },
                 error: function(xhr, status, error) {
+                    console.error('AJAX Error:', status, error);
+                    console.error('XHR:', xhr);
                     self.removeLoading();
                     self.handleAjaxError(xhr, status, error);
                 }
@@ -152,12 +164,16 @@
         },
         
         handleAjaxError: function(xhr, status, error) {
-            console.error('AJAX Error:', status, error, xhr);
-            
             let errorMsg = wc_ai_chat_params.error_text;
             
             if (xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.message) {
                 errorMsg = xhr.responseJSON.data.message;
+            } else if (xhr.status === 400) {
+                errorMsg = 'Error en la solicitud. Por favor recarga la página.';
+            } else if (xhr.status === 403) {
+                errorMsg = 'Error de seguridad. Recarga la página.';
+            } else if (xhr.status === 500) {
+                errorMsg = 'Error del servidor. Intenta más tarde.';
             }
             
             this.addMessage('❌ ' + errorMsg, 'ai');
@@ -193,16 +209,12 @@
         },
         
         escapeHtml: function(text) {
-            return text
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
     };
     
-    // Initialize when document is ready
     $(document).ready(function() {
         WC_AIChat.init();
     });
