@@ -75,6 +75,7 @@ class Product_Analyzer {
         
         $this->analyze_product($post_id);
     }
+
     
     public function analyze_product($product_id) {
         $product = wc_get_product($product_id);
@@ -137,6 +138,35 @@ class Product_Analyzer {
         
         return $analysis;
     }
+    
+public function analyze_all_products() {
+    $args = array(
+        'post_type' => 'product',
+        'posts_per_page' => -1,
+        'post_status' => 'publish',
+        'fields' => 'ids' // Solo obtener IDs para mejor performance
+    );
+    
+    $product_ids = get_posts($args);
+    $analyzed_count = 0;
+    
+    foreach ($product_ids as $product_id) {
+        $result = $this->analyze_product($product_id);
+        if ($result) {
+            $analyzed_count++;
+        }
+        
+        // Pequeña pausa para no sobrecargar el servidor
+        if (count($product_ids) > 100) {
+            usleep(50000); // 50ms de pausa
+        }
+    }
+    
+    update_option('wc_ai_chat_last_analysis', current_time('mysql'));
+    update_option('wc_ai_chat_analyzed_count', $analyzed_count);
+    
+    return $analyzed_count;
+}
     
     private function extract_keywords_from_content($content, $keywords) {
         $found_keywords = array();
