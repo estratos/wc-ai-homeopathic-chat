@@ -13,69 +13,99 @@ class AI_Chat_Frontend {
             return;
         }
         
+        // Solo cargar en páginas relevantes
+        if (!$this->should_load_chat()) {
+            return;
+        }
+        
         wp_enqueue_style('wc-ai-chat-style', WC_AI_CHAT_PLUGIN_URL . 'assets/css/ai-chat.css', array(), WC_AI_CHAT_VERSION);
         wp_enqueue_script('wc-ai-chat-script', WC_AI_CHAT_PLUGIN_URL . 'assets/js/ai-chat.js', array('jquery'), WC_AI_CHAT_VERSION, true);
         
+        // Pasar variables a JavaScript
         wp_localize_script('wc-ai-chat-script', 'wc_ai_chat_params', array(
             'ajax_url' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('wc_ai_chat_nonce')
+            'nonce' => wp_create_nonce('wc_ai_chat_nonce'),
+            'placeholder_image' => WC()->plugin_url() . '/assets/images/placeholder.png'
         ));
     }
     
-    public function render_chat_interface() {
-        if (!class_exists('WooCommerce') || is_admin()) {
-            return;
+    private function should_load_chat() {
+        // Verificar si WooCommerce está activo
+        if (!class_exists('WooCommerce')) {
+            return false;
         }
         
+        // Verificar si el chat está habilitado
         $enabled = get_option('wc_ai_chat_enabled', '1');
         if ($enabled !== '1') {
+            return false;
+        }
+        
+        // Cargar solo en páginas relevantes de WooCommerce
+        return is_shop() || is_product_category() || is_product() || is_page() || is_front_page();
+    }
+    
+    public function render_chat_interface() {
+        if (!$this->should_load_chat()) {
             return;
         }
         ?>
-        <div id="wc-ai-chat-container">
-            <button id="wc-ai-chat-button">💬</button>
-            <div id="wc-ai-chat-window">
-                <div class="wc-ai-chat-header">
-                    <h3>Asistente Homeopático</h3>
-                    <button class="wc-ai-chat-close">×</button>
-                </div>
-                <div class="wc-ai-chat-messages"></div>
-                <div class="wc-ai-chat-input">
-                    <form class="wc-ai-chat-input-form">
-                        <input type="text" class="wc-ai-chat-input-field" placeholder="Describe tus síntomas..." required>
-                        <button type="submit">Enviar</button>
-                    </form>
-                </div>
-            </div>
-        </div>
+        <!-- El chat se renderiza mediante JavaScript -->
         <?php
     }
     
     public function handle_chat_message() {
-        check_ajax_referer('wc_ai_chat_nonce', 'nonce');
+        // Verificar nonce primero
+        if (!check_ajax_referer('wc_ai_chat_nonce', 'nonce', false)) {
+            wp_send_json_error(array(
+                'message' => 'Error de seguridad. Por favor recarga la página.'
+            ), 403);
+            return;
+        }
         
-        if (!isset($_POST['message']) || empty($_POST['message'])) {
-            wp_send_json_error(array('message' => 'Mensaje vacío'));
+        // Verificar que el mensaje existe y no está vacío
+        if (!isset($_POST['message']) || empty(trim($_POST['message']))) {
+            wp_send_json_error(array(
+                'message' => 'El mensaje no puede estar vacío.'
+            ), 400);
             return;
         }
         
         $user_message = sanitize_text_field($_POST['message']);
+        $session_id = isset($_POST['session_id']) ? sanitize_text_field($_POST['session_id']) : '';
         
-        $product_analyzer = new Product_Analyzer();
-        $matched_products = $product_analyzer->find_products_by_query($user_message);
-        
-        $ai_handler = new AI_Handler();
-        $response = $ai_handler->get_recommendations($user_message, $matched_products);
-        
-        if (isset($response['error'])) {
-            wp_send_json_error(array('message' => $response['error']));
-            return;
+        // Procesar el mensaje
+        try {
+            $product_analyzer = new Product_Analyzer();
+            $matched_products = $product_analyzer->find_products_by_query($user_message);
+            
+            $ai_handler = new AI_Handler();
+            $response = $ai_handler->get_recommendations($user_message, $matched_products);
+            
+            if (isset($response['error'])) {
+                wp_send_json_error(array(
+                    'message' => $response['error']
+                ), 500);
+                return;
+            }
+            
+            // Preparar respuesta exitosa
+            $result = array(
+                'response' => $response['response'],
+                'products' => $this->prepare_products_response($matched_products)
+            );
+            
+            if ($session_id) {
+                $result['session_id'] = $session_id;
+            }
+            
+            wp_send_json_success($result);
+            
+        } catch (Exception $e) {
+            wp_send_json_error(array(
+                'message' => 'Error interno del servidor: ' . $e->getMessage()
+            ), 500);
         }
-        
-        wp_send_json_success(array(
-            'response' => $response['response'],
-            'products' => $this->prepare_products_response($matched_products)
-        ));
     }
     
     private function prepare_products_response($products) {
@@ -83,6 +113,7 @@ class AI_Chat_Frontend {
         
         foreach ($products as $product_id => $data) {
             $product = wc_get_product($product_id);
+            
             if ($product && $product->is_visible()) {
                 $result[] = array(
                     'id' => $product_id,
