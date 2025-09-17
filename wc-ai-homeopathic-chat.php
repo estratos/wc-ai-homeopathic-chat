@@ -20,6 +20,11 @@ define('WC_AI_CHAT_PLUGIN_PATH', plugin_dir_path(__FILE__));
 class WC_AI_Homeopathic_Chat {
     
     private static $instance = null;
+    public $admin;
+    public $frontend;
+    public $product_analyzer;
+    public $ai_handler;
+    public $chat_sessions;
     
     public static function get_instance() {
         if (is_null(self::$instance)) {
@@ -116,8 +121,8 @@ class WC_AI_Homeopathic_Chat {
     
     public function add_plugin_action_links($links) {
         $custom_links = array(
-            'settings' => '<a href="' . admin_url('admin.php?page=wc-ai-homeopathic-chat') . '">' . __('Configuración', 'wc-ai-homeopathic-chat') . '</a>',
-            'analyze' => '<a href="' . admin_url('admin.php?page=wc-ai-homeopathic-chat&action=analyze') . '">' . __('Analizar Productos', 'wc-ai-homeopathic-chat') . '</a>'
+            'settings' => '<a href="' . admin_url('admin.php?page=wc-ai-homeopathic-chat') . '" style="font-weight:bold;color:#0073aa;">⚙️ Configuración</a>',
+            'analyze' => '<a href="' . admin_url('admin.php?page=wc-ai-homeopathic-chat&action=analyze') . '" style="font-weight:bold;color:#46b450;">🔍 Analizar Productos</a>'
         );
         
         return array_merge($custom_links, $links);
@@ -185,39 +190,6 @@ add_action('woocommerce_loaded', function() {
     }
 });
 
-// Añadir estilos para el enlace de administración
-add_action('admin_head', function() {
-    ?>
-    <style>
-        .wc-ai-chat-links {
-            display: inline-block;
-            margin-left: 10px;
-            padding: 2px 8px;
-            background: #2271b1;
-            color: white;
-            border-radius: 3px;
-            text-decoration: none;
-            font-size: 12px;
-        }
-        .wc-ai-chat-links:hover {
-            background: #135e96;
-            color: white;
-        }
-    </style>
-    <?php
-});
-
-// Añadir enlace visible en la lista de plugins
-add_filter('plugin_action_links_' . plugin_basename(__FILE__), function($links) {
-    $settings_link = '<a href="' . admin_url('admin.php?page=wc-ai-homeopathic-chat') . '" class="wc-ai-chat-links">⚙️ Configuración</a>';
-    $analyze_link = '<a href="' . admin_url('admin.php?page=wc-ai-homeopathic-chat&action=analyze') . '" class="wc-ai-chat-links">🔍 Analizar Productos</a>';
-    
-    array_unshift($links, $analyze_link);
-    array_unshift($links, $settings_link);
-    
-    return $links;
-});
-
 // Añadir enlaces de meta
 add_filter('plugin_row_meta', function($links, $file) {
     if (plugin_basename(__FILE__) !== $file) {
@@ -225,8 +197,8 @@ add_filter('plugin_row_meta', function($links, $file) {
     }
     
     $row_meta = array(
-        'docs' => '<a href="https://github.com/tu-usuario/wc-ai-homeopathic-chat" target="_blank">Documentación</a>',
-        'support' => '<a href="https://wordpress.org/support/plugin/wc-ai-homeopathic-chat" target="_blank">Soporte</a>'
+        'docs' => '<a href="https://github.com/tu-usuario/wc-ai-homeopathic-chat" target="_blank">📚 Documentación</a>',
+        'support' => '<a href="https://wordpress.org/support/plugin/wc-ai-homeopathic-chat" target="_blank">🆘 Soporte</a>'
     );
     
     return array_merge($links, $row_meta);

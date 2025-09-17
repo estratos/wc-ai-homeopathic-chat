@@ -226,4 +226,18 @@ class AI_Handler {
         $result = $this->debug_api_connection();
         return $result['success'];
     }
+    
+    public function get_available_models() {
+        if ($this->api_provider === 'deepseek') {
+            return array(
+                'deepseek-chat' => 'DeepSeek Chat',
+                'deepseek-coder' => 'DeepSeek Coder'
+            );
+        } else {
+            return array(
+                'gpt-3.5-turbo' => 'GPT-3.5 Turbo',
+                'gpt-4' => 'GPT-4'
+            );
+        }
+    }
 }

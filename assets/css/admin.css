@@ -74,3 +74,11 @@
 .widefat.fixed tr:hover td {
     background: #f9f9f9;
 }
+
+.notice-success {
+    border-left-color: #46b450;
+}
+
+.notice-error {
+    border-left-color: #d63638;
+}

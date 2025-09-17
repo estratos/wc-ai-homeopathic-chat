@@ -28,6 +28,43 @@ class AI_Chat_Admin {
         wp_enqueue_style('wc-ai-chat-admin', WC_AI_CHAT_PLUGIN_URL . 'assets/css/admin.css', array(), WC_AI_CHAT_VERSION);
     }
     
+    public function register_settings() {
+        register_setting('wc_ai_chat_settings', 'wc_ai_chat_api_key');
+        register_setting('wc_ai_chat_settings', 'wc_ai_chat_api_provider');
+        register_setting('wc_ai_chat_settings', 'wc_ai_chat_enabled');
+        
+        add_settings_section(
+            'wc_ai_chat_main_section',
+            'Configuración Principal',
+            array($this, 'render_section_description'),
+            'wc-ai-homeopathic-chat'
+        );
+        
+        add_settings_field(
+            'wc_ai_chat_api_provider',
+            'Proveedor de IA',
+            array($this, 'render_api_provider_field'),
+            'wc-ai-homeopathic-chat',
+            'wc_ai_chat_main_section'
+        );
+        
+        add_settings_field(
+            'wc_ai_chat_api_key',
+            'API Key',
+            array($this, 'render_api_key_field'),
+            'wc-ai-homeopathic-chat',
+            'wc_ai_chat_main_section'
+        );
+        
+        add_settings_field(
+            'wc_ai_chat_enabled',
+            'Habilitar Chat',
+            array($this, 'render_enabled_field'),
+            'wc-ai-homeopathic-chat',
+            'wc_ai_chat_main_section'
+        );
+    }
+    
     public function handle_actions() {
         if (!isset($_GET['page']) || $_GET['page'] !== 'wc-ai-homeopathic-chat') {
             return;
@@ -54,6 +91,25 @@ class AI_Chat_Admin {
                     break;
             }
         }
+    }
+    
+    private function handle_analyze_action() {
+        if (!current_user_can('manage_options')) {
+            wp_die('No tienes permisos');
+        }
+        
+        $analyzer = new Product_Analyzer();
+        $count = $analyzer->analyze_all_products();
+        
+        add_settings_error(
+            'wc_ai_chat_messages',
+            'wc_ai_chat_analyze',
+            "✅ Se analizaron {$count} productos correctamente.",
+            'success'
+        );
+        
+        wp_redirect(admin_url('admin.php?page=wc-ai-homeopathic-chat'));
+        exit;
     }
     
     private function handle_test_connection() {
@@ -278,5 +334,46 @@ class AI_Chat_Admin {
         <?php
     }
     
-    // ... (el resto de los métodos permanecen igual)
+    public function render_section_description() {
+        echo '<p>Configura los parámetros del chat con inteligencia artificial para recomendaciones homeopáticas.</p>';
+    }
+    
+    public function render_api_provider_field() {
+        $provider = get_option('wc_ai_chat_api_provider', 'openai');
+        ?>
+        <select name="wc_ai_chat_api_provider" style="width: 300px;">
+            <option value="openai" <?php selected($provider, 'openai'); ?>>OpenAI</option>
+            <option value="deepseek" <?php selected($provider, 'deepseek'); ?>>DeepSeek</option>
+        </select>
+        <p class="description">Selecciona el proveedor de servicios de IA</p>
+        <?php
+    }
+    
+    public function render_api_key_field() {
+        $api_key = get_option('wc_ai_chat_api_key', '');
+        ?>
+        <input type="password" name="wc_ai_chat_api_key" value="<?php echo esc_attr($api_key); ?>" style="width: 300px;">
+        <p class="description">
+            Ingresa tu API Key de 
+            <?php 
+            $provider = get_option('wc_ai_chat_api_provider', 'openai');
+            if ($provider === 'deepseek') {
+                echo '<a href="https://platform.deepseek.com/api_keys" target="_blank">DeepSeek</a>';
+            } else {
+                echo '<a href="https://platform.openai.com/api-keys" target="_blank">OpenAI</a>';
+            }
+            ?>
+        </p>
+        <?php
+    }
+    
+    public function render_enabled_field() {
+        $enabled = get_option('wc_ai_chat_enabled', '1');
+        ?>
+        <label>
+            <input type="checkbox" name="wc_ai_chat_enabled" value="1" <?php checked($enabled, '1'); ?>>
+            Activar chat en el frontend de la tienda
+        </label>
+        <?php
+    }
 }
