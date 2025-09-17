@@ -1,12 +1,11 @@
-.wc-ai-chat-container {
+#wc-ai-chat-container {
     position: fixed;
     bottom: 20px;
     right: 20px;
     z-index: 9999;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
 
-.wc-ai-chat-button {
+#wc-ai-chat-button {
     background: #4CAF50;
     color: white;
     border: none;
@@ -15,13 +14,10 @@
     height: 60px;
     cursor: pointer;
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
     font-size: 24px;
 }
 
-.wc-ai-chat-window {
+#wc-ai-chat-window {
     display: none;
     position: absolute;
     bottom: 70px;
@@ -34,7 +30,7 @@
     flex-direction: column;
 }
 
-.wc-ai-chat-window.active {
+#wc-ai-chat-window.active {
     display: flex;
 }
 
@@ -51,11 +47,21 @@
     flex: 1;
     padding: 15px;
     overflow-y: auto;
-    background: #f8f9fa;
 }
 
 .wc-ai-chat-input {
     padding: 15px;
     border-top: 1px solid #e0e0e0;
-    background: white;
+}
+
+.wc-ai-chat-input-form {
+    display: flex;
+    gap: 10px;
+}
+
+.wc-ai-chat-input-field {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
 }
