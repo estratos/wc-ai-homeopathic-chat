@@ -2,7 +2,7 @@
 class Chat_Sessions {
     
     public function init() {
-        // Puedes agregar hooks aquí si es necesario
+        // Inicialización básica
     }
     
     public function create_tables() {
@@ -14,11 +14,9 @@ class Chat_Sessions {
         $sql = "CREATE TABLE $table_name (
             id mediumint(9) NOT NULL AUTO_INCREMENT,
             session_id varchar(100) NOT NULL,
-            user_ip varchar(45),
-            user_agent text,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             last_activity datetime DEFAULT CURRENT_TIMESTAMP,
-            messages longtext,
+            messages text,
             PRIMARY KEY (id),
             UNIQUE KEY session_id (session_id)
         ) $charset_collate;";
@@ -27,28 +25,12 @@ class Chat_Sessions {
         dbDelta($sql);
     }
     
-    public function create_session($initial_message = array()) {
-        $session_id = wp_generate_uuid4();
-        
-        // Guardar sesión mínima para evitar errores
-        $session_data = array(
-            'session_id' => $session_id,
-            'messages' => maybe_serialize(array($initial_message))
-        );
-        
-        return $session_id;
+    public function create_session() {
+        return wp_generate_uuid4();
     }
     
-    public function add_message_to_session($session_id, $message) {
-        // Implementación básica para evitar errores
+    public function add_message($session_id, $message) {
+        // Implementación básica
         return true;
-    }
-    
-    public function get_total_sessions() {
-        return 0; // Valor temporal
-    }
-    
-    public function get_recent_sessions($days = 7) {
-        return array(); // Array vacío temporal
     }
 }
