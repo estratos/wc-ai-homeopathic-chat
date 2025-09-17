@@ -1,23 +1,26 @@
 <?php
-class AI_Chat_Admin {
-    
-    public function init() {
+class AI_Chat_Admin
+{
+
+    public function init()
+    {
         add_action('admin_init', array($this, 'register_settings'));
         add_action('admin_init', array($this, 'handle_actions'));
     }
-    
-    public function register_settings() {
+
+    public function register_settings()
+    {
         register_setting('wc_ai_chat_settings', 'wc_ai_chat_api_key');
         register_setting('wc_ai_chat_settings', 'wc_ai_chat_api_provider');
         register_setting('wc_ai_chat_settings', 'wc_ai_chat_enabled');
-        
+
         add_settings_section(
             'wc_ai_chat_main_section',
             'Configuración Principal',
             array($this, 'render_section_description'),
             'wc-ai-homeopathic-chat'
         );
-        
+
         add_settings_field(
             'wc_ai_chat_api_provider',
             'Proveedor de IA',
@@ -25,7 +28,7 @@ class AI_Chat_Admin {
             'wc-ai-homeopathic-chat',
             'wc_ai_chat_main_section'
         );
-        
+
         add_settings_field(
             'wc_ai_chat_api_key',
             'API Key',
@@ -33,7 +36,7 @@ class AI_Chat_Admin {
             'wc-ai-homeopathic-chat',
             'wc_ai_chat_main_section'
         );
-        
+
         add_settings_field(
             'wc_ai_chat_enabled',
             'Habilitar Chat',
@@ -42,46 +45,60 @@ class AI_Chat_Admin {
             'wc_ai_chat_main_section'
         );
     }
-    
-    public function handle_actions() {
+
+
+    // Y actualizar el método handle_actions:
+    public function handle_actions()
+    {
         if (!isset($_GET['page']) || $_GET['page'] !== 'wc-ai-homeopathic-chat') {
             return;
         }
-        
-        if (isset($_GET['action']) && $_GET['action'] === 'analyze') {
-            $this->handle_analyze_action();
+
+        if (isset($_GET['action'])) {
+            switch ($_GET['action']) {
+                case 'analyze':
+                    $this->handle_analyze_action();
+                    break;
+                case 'test_connection':
+                    $this->handle_test_connection();
+                    break;
+            }
         }
     }
-    
-    private function handle_analyze_action() {
+
+
+
+    private function handle_analyze_action()
+    {
         if (!current_user_can('manage_options')) {
             wp_die('No tienes permisos');
         }
-        
+
         $analyzer = new Product_Analyzer();
         $count = $analyzer->analyze_all_products();
-        
+
         add_settings_error(
             'wc_ai_chat_messages',
             'wc_ai_chat_analyze',
             "✅ Se analizaron {$count} productos correctamente.",
             'success'
         );
-        
+
         wp_redirect(admin_url('admin.php?page=wc-ai-homeopathic-chat'));
         exit;
     }
-    
-    public function render_admin_page() {
+
+    public function render_admin_page()
+    {
         if (!current_user_can('manage_options')) {
             wp_die('No tienes permisos para acceder a esta página');
         }
-        ?>
+?>
         <div class="wrap">
             <h1>⚕️ Chat IA Homeopático</h1>
-            
+
             <?php settings_errors('wc_ai_chat_messages'); ?>
-            
+
             <!-- Botones de acción rápida -->
             <div style="background: #f6f7f7; padding: 20px; border: 1px solid #c3c4c7; margin: 20px 0; border-radius: 4px;">
                 <h2 style="margin-top: 0;">Acciones Rápidas</h2>
@@ -89,12 +106,15 @@ class AI_Chat_Admin {
                     <a href="<?php echo admin_url('admin.php?page=wc-ai-homeopathic-chat&action=analyze'); ?>" class="button button-primary">
                         🔄 Analizar Productos
                     </a>
-                    <a href="<?php echo admin_url('admin.php?page=wc-ai-homeopathic-chat&test=connection'); ?>" class="button button-secondary">
-                        🚀 Probar Conexión
+                    <a href="<?php echo admin_url('admin.php?page=wc-ai-homeopathic-chat&action=test_connection'); ?>" class="button button-secondary">
+                        🚀 Probar Conexión API
+                    </a>
+                    <a href="<?php echo admin_url('options-general.php?page=wc-ai-homeopathic-chat&debug=api'); ?>" class="button button-secondary">
+                        🐛 Debug API
                     </a>
                 </p>
             </div>
-            
+
             <form method="post" action="options.php">
                 <?php
                 settings_fields('wc_ai_chat_settings');
@@ -102,16 +122,16 @@ class AI_Chat_Admin {
                 submit_button('Guardar Configuración', 'primary', 'submit', true);
                 ?>
             </form>
-            
+
             <!-- Panel de estado -->
             <div style="background: #fff; padding: 20px; border: 1px solid #ccd0d4; margin: 20px 0; border-radius: 4px;">
                 <h2>📊 Estado del Sistema</h2>
-                
+
                 <?php
                 $api_key = get_option('wc_ai_chat_api_key');
                 $enabled = get_option('wc_ai_chat_enabled', '1');
                 $provider = get_option('wc_ai_chat_api_provider', 'openai');
-                
+
                 // Contar productos analizados
                 $analyzer = new Product_Analyzer();
                 $analyzed_count = count($analyzer->get_analyzed_products());
@@ -121,7 +141,7 @@ class AI_Chat_Admin {
                     'fields' => 'ids'
                 )));
                 ?>
-                
+
                 <table class="widefat" style="width: 100%;">
                     <thead>
                         <tr>
@@ -158,53 +178,60 @@ class AI_Chat_Admin {
                 </table>
             </div>
         </div>
-        
+
         <style>
             .wrap h1 {
                 color: #2c5e8a;
             }
+
             .button {
                 margin-right: 10px;
             }
+
             .widefat {
                 border-spacing: 0;
                 border-collapse: collapse;
             }
+
             .widefat th {
                 text-align: left;
                 padding: 10px;
                 background: #f6f7f7;
             }
+
             .widefat td {
                 padding: 10px;
                 border-bottom: 1px solid #f6f7f7;
             }
         </style>
-        <?php
+    <?php
     }
-    
-    public function render_section_description() {
+
+    public function render_section_description()
+    {
         echo '<p>Configura los parámetros del chat con inteligencia artificial para recomendaciones homeopáticas.</p>';
     }
-    
-    public function render_api_provider_field() {
+
+    public function render_api_provider_field()
+    {
         $provider = get_option('wc_ai_chat_api_provider', 'openai');
-        ?>
+    ?>
         <select name="wc_ai_chat_api_provider" style="width: 300px;">
             <option value="openai" <?php selected($provider, 'openai'); ?>>OpenAI</option>
             <option value="deepseek" <?php selected($provider, 'deepseek'); ?>>DeepSeek</option>
         </select>
         <p class="description">Selecciona el proveedor de servicios de IA</p>
-        <?php
+    <?php
     }
-    
-    public function render_api_key_field() {
+
+    public function render_api_key_field()
+    {
         $api_key = get_option('wc_ai_chat_api_key', '');
-        ?>
+    ?>
         <input type="password" name="wc_ai_chat_api_key" value="<?php echo esc_attr($api_key); ?>" style="width: 300px;">
         <p class="description">
-            Ingresa tu API Key de 
-            <?php 
+            Ingresa tu API Key de
+            <?php
             $provider = get_option('wc_ai_chat_api_provider', 'openai');
             if ($provider === 'deepseek') {
                 echo '<a href="https://platform.deepseek.com/api_keys" target="_blank">DeepSeek</a>';
@@ -213,16 +240,48 @@ class AI_Chat_Admin {
             }
             ?>
         </p>
-        <?php
+    <?php
     }
-    
-    public function render_enabled_field() {
+
+    public function render_enabled_field()
+    {
         $enabled = get_option('wc_ai_chat_enabled', '1');
-        ?>
+    ?>
         <label>
             <input type="checkbox" name="wc_ai_chat_enabled" value="1" <?php checked($enabled, '1'); ?>>
             Activar chat en el frontend de la tienda
         </label>
-        <?php
+<?php
+    }
+
+    // Añadir este método a la clase existente
+    private function handle_test_connection()
+    {
+        if (!current_user_can('manage_options')) {
+            wp_die('No tienes permisos');
+        }
+
+        $ai_handler = new AI_Handler();
+        $ai_handler->init();
+        $result = $ai_handler->test_api_connection();
+
+        if ($result) {
+            add_settings_error(
+                'wc_ai_chat_messages',
+                'wc_ai_chat_test',
+                '✅ Conexión con la API exitosa',
+                'success'
+            );
+        } else {
+            add_settings_error(
+                'wc_ai_chat_messages',
+                'wc_ai_chat_test',
+                '❌ Error en la conexión con la API. Revisa la consola de errores para más detalles.',
+                'error'
+            );
+        }
+
+        wp_redirect(admin_url('admin.php?page=wc-ai-homeopathic-chat'));
+        exit;
     }
 }
