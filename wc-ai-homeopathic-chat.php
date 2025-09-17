@@ -110,6 +110,38 @@ function wc_ai_homeopathic_chat() {
 // Iniciar el plugin
 add_action('plugins_loaded', 'wc_ai_homeopathic_chat_init', 15);
 
+
+// Añadir enlaces de acción rápida en la lista de plugins
+add_filter('plugin_action_links_' . plugin_basename(__FILE__), 'wc_ai_chat_plugin_action_links');
+
+function wc_ai_chat_plugin_action_links($links) {
+    $settings_link = '<a href="' . admin_url('admin.php?page=wc-ai-homeopathic-chat') . '">' . __('Configuración', 'wc-ai-homeopathic-chat') . '</a>';
+    array_unshift($links, $settings_link);
+    
+    // Añadir también enlace para analizar productos
+    $analyze_link = '<a href="' . admin_url('admin.php?page=wc-ai-homeopathic-chat&action=analyze_products') . '">' . __('Analizar Productos', 'wc-ai-homeopathic-chat') . '</a>';
+    $links[] = $analyze_link;
+    
+    return $links;
+}
+
+// Añadir enlaces de meta (debajo de la descripción del plugin)
+add_filter('plugin_row_meta', 'wc_ai_chat_plugin_row_meta', 10, 2);
+
+function wc_ai_chat_plugin_row_meta($links, $file) {
+    if (plugin_basename(__FILE__) !== $file) {
+        return $links;
+    }
+    
+    $row_meta = array(
+        'docs' => '<a href="' . esc_url('https://github.com/tu-usuario/wc-ai-homeopathic-chat') . '" aria-label="' . esc_attr__('Documentación', 'wc-ai-homeopathic-chat') . '" target="_blank">' . __('Documentación', 'wc-ai-homeopathic-chat') . '</a>',
+        'support' => '<a href="' . esc_url('https://wordpress.org/support/plugin/wc-ai-homeopathic-chat') . '" aria-label="' . esc_attr__('Soporte', 'wc-ai-homeopathic-chat') . '" target="_blank">' . __('Soporte', 'wc-ai-homeopathic-chat') . '</a>'
+    );
+    
+    return array_merge($links, $row_meta);
+}
+
+
 function wc_ai_homeopathic_chat_init() {
     // Esperar a que WooCommerce cargue primero
     if (class_exists('WooCommerce')) {
