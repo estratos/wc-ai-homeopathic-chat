@@ -2,19 +2,8 @@
 class AI_Chat_Admin {
     
     public function init() {
-        add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_init', array($this, 'register_settings'));
-    }
-    
-    public function add_admin_menu() {
-        add_submenu_page(
-            'woocommerce',
-            'Chat IA Homeopático',
-            'Chat IA Homeopático',
-            'manage_options',
-            'wc-ai-homeopathic-chat',
-            array($this, 'render_admin_page')
-        );
+        add_action('admin_init', array($this, 'handle_actions'));
     }
     
     public function register_settings() {
@@ -54,46 +43,141 @@ class AI_Chat_Admin {
         );
     }
     
+    public function handle_actions() {
+        if (!isset($_GET['page']) || $_GET['page'] !== 'wc-ai-homeopathic-chat') {
+            return;
+        }
+        
+        if (isset($_GET['action']) && $_GET['action'] === 'analyze') {
+            $this->handle_analyze_action();
+        }
+    }
+    
+    private function handle_analyze_action() {
+        if (!current_user_can('manage_options')) {
+            wp_die('No tienes permisos');
+        }
+        
+        $analyzer = new Product_Analyzer();
+        $count = $analyzer->analyze_all_products();
+        
+        add_settings_error(
+            'wc_ai_chat_messages',
+            'wc_ai_chat_analyze',
+            "✅ Se analizaron {$count} productos correctamente.",
+            'success'
+        );
+        
+        wp_redirect(admin_url('admin.php?page=wc-ai-homeopathic-chat'));
+        exit;
+    }
+    
     public function render_admin_page() {
         if (!current_user_can('manage_options')) {
-            return;
+            wp_die('No tienes permisos para acceder a esta página');
         }
         ?>
         <div class="wrap">
-            <h1>Chat IA Homeopático - Configuración</h1>
+            <h1>⚕️ Chat IA Homeopático</h1>
             
-            <?php settings_errors(); ?>
+            <?php settings_errors('wc_ai_chat_messages'); ?>
+            
+            <!-- Botones de acción rápida -->
+            <div style="background: #f6f7f7; padding: 20px; border: 1px solid #c3c4c7; margin: 20px 0; border-radius: 4px;">
+                <h2 style="margin-top: 0;">Acciones Rápidas</h2>
+                <p>
+                    <a href="<?php echo admin_url('admin.php?page=wc-ai-homeopathic-chat&action=analyze'); ?>" class="button button-primary">
+                        🔄 Analizar Productos
+                    </a>
+                    <a href="<?php echo admin_url('admin.php?page=wc-ai-homeopathic-chat&test=connection'); ?>" class="button button-secondary">
+                        🚀 Probar Conexión
+                    </a>
+                </p>
+            </div>
             
             <form method="post" action="options.php">
                 <?php
                 settings_fields('wc_ai_chat_settings');
                 do_settings_sections('wc-ai-homeopathic-chat');
-                submit_button('Guardar Configuración');
+                submit_button('Guardar Configuración', 'primary', 'submit', true);
                 ?>
             </form>
             
-            <div class="card" style="margin-top: 20px; padding: 20px; background: #f6f7f7; border: 1px solid #ccd0d4;">
-                <h3>Estado del Sistema</h3>
+            <!-- Panel de estado -->
+            <div style="background: #fff; padding: 20px; border: 1px solid #ccd0d4; margin: 20px 0; border-radius: 4px;">
+                <h2>📊 Estado del Sistema</h2>
+                
                 <?php
                 $api_key = get_option('wc_ai_chat_api_key');
                 $enabled = get_option('wc_ai_chat_enabled', '1');
+                $provider = get_option('wc_ai_chat_api_provider', 'openai');
                 
-                echo '<p><strong>Estado:</strong> ' . ($enabled ? '✅ Activado' : '❌ Desactivado') . '</p>';
-                echo '<p><strong>API Key:</strong> ' . (empty($api_key) ? '❌ No configurada' : '✅ Configurada') . '</p>';
-                
-                $product_analyzer = new Product_Analyzer();
-                $analyzed_count = count($product_analyzer->get_analyzed_products());
-                $total_products = count(get_posts(array('post_type' => 'product', 'posts_per_page' => -1, 'fields' => 'ids')));
-                
-                echo '<p><strong>Productos analizados:</strong> ' . $analyzed_count . ' / ' . $total_products . '</p>';
+                // Contar productos analizados
+                $analyzer = new Product_Analyzer();
+                $analyzed_count = count($analyzer->get_analyzed_products());
+                $total_products = count(get_posts(array(
+                    'post_type' => 'product',
+                    'posts_per_page' => -1,
+                    'fields' => 'ids'
+                )));
                 ?>
+                
+                <table class="widefat" style="width: 100%;">
+                    <thead>
+                        <tr>
+                            <th>Parámetro</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Plugin Activado</strong></td>
+                            <td>✅ Sí</td>
+                        </tr>
+                        <tr>
+                            <td><strong>WooCommerce</strong></td>
+                            <td>✅ Detectado</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Chat Habilitado</strong></td>
+                            <td><?php echo $enabled ? '✅ Sí' : '❌ No'; ?></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Proveedor de IA</strong></td>
+                            <td><?php echo esc_html($provider); ?></td>
+                        </tr>
+                        <tr>
+                            <td><strong>API Key Configurada</strong></td>
+                            <td><?php echo empty($api_key) ? '❌ No' : '✅ Sí'; ?></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Productos Analizados</strong></td>
+                            <td><?php echo "{$analyzed_count} / {$total_products}"; ?></td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
         
         <style>
-            .card {
-                border-radius: 4px;
-                box-shadow: 0 1px 1px rgba(0,0,0,0.04);
+            .wrap h1 {
+                color: #2c5e8a;
+            }
+            .button {
+                margin-right: 10px;
+            }
+            .widefat {
+                border-spacing: 0;
+                border-collapse: collapse;
+            }
+            .widefat th {
+                text-align: left;
+                padding: 10px;
+                background: #f6f7f7;
+            }
+            .widefat td {
+                padding: 10px;
+                border-bottom: 1px solid #f6f7f7;
             }
         </style>
         <?php
@@ -106,19 +190,29 @@ class AI_Chat_Admin {
     public function render_api_provider_field() {
         $provider = get_option('wc_ai_chat_api_provider', 'openai');
         ?>
-        <select name="wc_ai_chat_api_provider">
+        <select name="wc_ai_chat_api_provider" style="width: 300px;">
             <option value="openai" <?php selected($provider, 'openai'); ?>>OpenAI</option>
             <option value="deepseek" <?php selected($provider, 'deepseek'); ?>>DeepSeek</option>
         </select>
-        <p class="description">Selecciona el proveedor de IA</p>
+        <p class="description">Selecciona el proveedor de servicios de IA</p>
         <?php
     }
     
     public function render_api_key_field() {
         $api_key = get_option('wc_ai_chat_api_key', '');
         ?>
-        <input type="password" name="wc_ai_chat_api_key" value="<?php echo esc_attr($api_key); ?>" class="regular-text">
-        <p class="description">Ingresa tu API Key</p>
+        <input type="password" name="wc_ai_chat_api_key" value="<?php echo esc_attr($api_key); ?>" style="width: 300px;">
+        <p class="description">
+            Ingresa tu API Key de 
+            <?php 
+            $provider = get_option('wc_ai_chat_api_provider', 'openai');
+            if ($provider === 'deepseek') {
+                echo '<a href="https://platform.deepseek.com/api_keys" target="_blank">DeepSeek</a>';
+            } else {
+                echo '<a href="https://platform.openai.com/api-keys" target="_blank">OpenAI</a>';
+            }
+            ?>
+        </p>
         <?php
     }
     
@@ -127,7 +221,7 @@ class AI_Chat_Admin {
         ?>
         <label>
             <input type="checkbox" name="wc_ai_chat_enabled" value="1" <?php checked($enabled, '1'); ?>>
-            Activar chat en el frontend
+            Activar chat en el frontend de la tienda
         </label>
         <?php
     }
