@@ -22,11 +22,17 @@ class AI_Chat_Frontend {
         wp_enqueue_script('wc-ai-chat-script', WC_AI_CHAT_PLUGIN_URL . 'assets/js/ai-chat.js', array('jquery'), WC_AI_CHAT_VERSION, true);
         
         // Pasar variables a JavaScript
-        wp_localize_script('wc-ai-chat-script', 'wc_ai_chat_params', array(
+        wp_localize_script('wc-ai-chat-script', 'wc_ai_chat_params', $this->get_js_params());
+    }
+    
+    private function get_js_params() {
+        return array(
             'ajax_url' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('wc_ai_chat_nonce'),
-            'placeholder_image' => WC()->plugin_url() . '/assets/images/placeholder.png'
-        ));
+            'nonce' => wp_create_nonce('wc_ai_chat_frontend_nonce'),
+            'placeholder_image' => WC()->plugin_url() . '/assets/images/placeholder.png',
+            'loading_text' => __('Pensando...', 'wc-ai-homeopathic-chat'),
+            'error_text' => __('Error de conexión. Intenta nuevamente.', 'wc-ai-homeopathic-chat')
+        );
     }
     
     private function should_load_chat() {
@@ -41,7 +47,7 @@ class AI_Chat_Frontend {
             return false;
         }
         
-        // Cargar solo en páginas relevantes de WooCommerce
+        // Cargar solo en páginas relevantes
         return is_shop() || is_product_category() || is_product() || is_page() || is_front_page();
     }
     
@@ -55,27 +61,31 @@ class AI_Chat_Frontend {
     }
     
     public function handle_chat_message() {
-        // Verificar nonce primero
-        if (!check_ajax_referer('wc_ai_chat_nonce', 'nonce', false)) {
-            wp_send_json_error(array(
-                'message' => 'Error de seguridad. Por favor recarga la página.'
-            ), 403);
-            return;
-        }
-        
-        // Verificar que el mensaje existe y no está vacío
-        if (!isset($_POST['message']) || empty(trim($_POST['message']))) {
-            wp_send_json_error(array(
-                'message' => 'El mensaje no puede estar vacío.'
-            ), 400);
-            return;
-        }
-        
-        $user_message = sanitize_text_field($_POST['message']);
-        $session_id = isset($_POST['session_id']) ? sanitize_text_field($_POST['session_id']) : '';
-        
-        // Procesar el mensaje
         try {
+            // Verificar nonce
+            if (!check_ajax_referer('wc_ai_chat_frontend_nonce', 'nonce', false)) {
+                throw new Exception('Error de seguridad. Nonce inválido.');
+            }
+            
+            // Verificar método HTTP
+            if ('POST' !== $_SERVER['REQUEST_METHOD']) {
+                throw new Exception('Método no permitido.');
+            }
+            
+            // Verificar que el mensaje existe
+            if (!isset($_POST['message'])) {
+                throw new Exception('Mensaje no proporcionado.');
+            }
+            
+            $user_message = sanitize_text_field($_POST['message']);
+            
+            if (empty(trim($user_message))) {
+                throw new Exception('El mensaje no puede estar vacío.');
+            }
+            
+            $session_id = isset($_POST['session_id']) ? sanitize_text_field($_POST['session_id']) : '';
+            
+            // Procesar el mensaje
             $product_analyzer = new Product_Analyzer();
             $matched_products = $product_analyzer->find_products_by_query($user_message);
             
@@ -83,10 +93,7 @@ class AI_Chat_Frontend {
             $response = $ai_handler->get_recommendations($user_message, $matched_products);
             
             if (isset($response['error'])) {
-                wp_send_json_error(array(
-                    'message' => $response['error']
-                ), 500);
-                return;
+                throw new Exception($response['error']);
             }
             
             // Preparar respuesta exitosa
@@ -102,25 +109,35 @@ class AI_Chat_Frontend {
             wp_send_json_success($result);
             
         } catch (Exception $e) {
+            error_log('WC AI Chat Error: ' . $e->getMessage());
+            
             wp_send_json_error(array(
-                'message' => 'Error interno del servidor: ' . $e->getMessage()
-            ), 500);
+                'message' => $e->getMessage()
+            ), 400);
         }
+        
+        wp_die(); // Siempre terminar con wp_die() en AJAX
     }
     
     private function prepare_products_response($products) {
         $result = array();
         
+        if (!is_array($products) || empty($products)) {
+            return $result;
+        }
+        
         foreach ($products as $product_id => $data) {
             $product = wc_get_product($product_id);
             
             if ($product && $product->is_visible()) {
+                $image_url = wp_get_attachment_image_url($product->get_image_id(), 'thumbnail');
+                
                 $result[] = array(
                     'id' => $product_id,
                     'name' => $product->get_name(),
                     'price' => $product->get_price_html(),
                     'url' => get_permalink($product_id),
-                    'image' => wp_get_attachment_image_url($product->get_image_id(), 'thumbnail')
+                    'image' => $image_url ? $image_url : WC()->plugin_url() . '/assets/images/placeholder.png'
                 );
             }
         }
