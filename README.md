@@ -1,49 +1,40 @@
-Instrucciones de Instalación y Uso
-Instalar el Plugin:
+# WC AI Homeopathic Chat
 
-Comprimir la carpeta wc-ai-homeopathic-chat en un archivo ZIP
+Plugin de WordPress para integrar un chat de inteligencia artificial especializado en recomendaciones homeopáticas con WooCommerce.
 
-Subir el ZIP a WordPress mediante "Plugins > Añadir nuevo > Subir plugin"
+## Características
 
-Activar el plugin
+- 🤖 Integración con DeepSeek AI para recomendaciones inteligentes
+- 🛍️ Contexto completo de todos los productos de la tienda
+- 📊 Muestreo inteligente de inventario (funciona con 50 o 5000 productos)
+- 💾 Sistema de caché para mejor rendimiento
+- 📱 Interfaz responsive y moderna
+- ⚡ Optimizado para velocidad y eficiencia
 
-Configurar la API Key:
+## Instalación
 
-Ir a "WooCommerce > Chat IA Homeopático"
+1. Subir el plugin a `/wp-content/plugins/`
+2. Activar el plugin en el panel de WordPress
+3. Configurar la API Key de DeepSeek en Ajustes → Homeopathic Chat
+4. El plugin analizará automáticamente todos tus productos
 
-Ingresar la API Key de OpenAI
+## Configuración
 
-Guardar la configuración
+### API DeepSeek
+1. Obtén una API Key en [DeepSeek](https://platform.deepseek.com/)
+2. Ve a Ajustes → Homeopathic Chat en WordPress
+3. Ingresa tu API Key y guarda los cambios
 
-Análisis de Productos:
+### Categorías Prioritarias
+El plugin prioriza automáticamente productos en estas categorías:
+- `homeopathic`
+- `wellness` 
+- `natural`
+- `supplements`
+- `health`
 
-El plugin analizará automáticamente los productos existentes
+## Uso
 
-Los nuevos productos se analizarán al guardarlos
-
-Uso del Chat:
-
-El chat aparecerá en las páginas de productos y categorías
-
-Los usuarios pueden describir sus síntomas
-
-La IA recomendará productos homeopáticos apropiados
-
-Características Principales
-✅ Análisis automático de productos WooCommerce
-
-✅ Extracción de síntomas y padecimientos
-
-✅ Integración con OpenAI GPT
-
-✅ Interfaz de chat responsive
-
-✅ Recomendaciones de productos contextuales
-
-✅ Panel de administración
-
-✅ Soporte multi-idioma
-
-✅ Sesiones de chat persistentes
-
-Este plugin proporciona una solución completa para tiendas homeopáticas que desean ofrecer recomendaciones personalizadas basadas en inteligencia artificial.
+### Shortcode
+```php
+[wc_ai_homeopathic_chat]
