@@ -30,26 +30,54 @@ class AI_Chat_Frontend {
     }
     
     private function should_load_chat() {
-        if (!class_exists('WooCommerce')) {
-            return false;
-        }
-        
-        $enabled = get_option('wc_ai_chat_enabled', '1');
-        if ($enabled !== '1') {
-            return false;
-        }
-        
-        return is_shop() || is_product_category() || is_product() || is_page() || is_front_page();
+    if (!class_exists('WooCommerce')) {
+        return false;
     }
     
-    public function render_chat_interface() {
-        if (!$this->should_load_chat()) {
-            return;
-        }
-        ?>
-        <!-- El chat se renderiza mediante JavaScript -->
-        <?php
+    $enabled = get_option('wc_ai_chat_enabled', '1');
+    if ($enabled !== '1') {
+        return false;
     }
+    
+    // Mostrar en más páginas
+    $show_chat = is_shop() || is_product_category() || is_product() || 
+                 is_page() || is_front_page() || is_home();
+    
+    return apply_filters('wc_ai_chat_show_chat', $show_chat);
+}
+
+public function render_chat_interface() {
+    if (!$this->should_load_chat()) {
+        return;
+    }
+    ?>
+    <div id="wc-ai-chat-container">
+        <button id="wc-ai-chat-button" aria-label="Abrir chat de asistente homeopático">💬</button>
+        <div id="wc-ai-chat-window">
+            <div class="wc-ai-chat-header">
+                <h3>Asistente Homeopático</h3>
+                <button class="wc-ai-chat-close" aria-label="Cerrar chat">×</button>
+            </div>
+            <div class="wc-ai-chat-messages">
+                <div class="wc-ai-message ai">
+                    <div class="wc-ai-message-bubble">
+                        ¡Hola! Soy tu asistente homeopático. ¿En qué puedo ayudarte hoy?
+                    </div>
+                </div>
+            </div>
+            <div class="wc-ai-chat-input">
+                <form class="wc-ai-chat-input-form">
+                    <input type="text" class="wc-ai-chat-input-field" 
+                           placeholder="Describe tus síntomas o malestares..." 
+                           required
+                           aria-label="Escribe tu mensaje">
+                    <button type="submit" class="wc-ai-chat-send-button">Enviar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <?php
+}
     
     public function handle_chat_message() {
         // Limpiar cualquier output previo
