@@ -1,22 +1,13 @@
 <?php
 class AI_Chat_Frontend {
     
-    private $nonce_action = 'wc_ai_chat_frontend_nonce_action';
+    private $nonce_action = 'wc_ai_chat_frontend';
     
     public function init() {
         add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
         add_action('wp_footer', array($this, 'render_chat_interface'));
         add_action('wp_ajax_wc_ai_chat_send_message', array($this, 'handle_chat_message'));
         add_action('wp_ajax_nopriv_wc_ai_chat_send_message', array($this, 'handle_chat_message'));
-        
-        // Debug temporal
-        add_action('init', array($this, 'debug_nonce'));
-    }
-    
-    public function debug_nonce() {
-        if (isset($_GET['debug_nonce'])) {
-            error_log('Current nonce: ' . wp_create_nonce($this->nonce_action));
-        }
     }
     
     public function enqueue_scripts() {
@@ -54,7 +45,7 @@ class AI_Chat_Frontend {
             return false;
         }
         
-        return is_shop() || is_product_category() || is_product() || is_page() || is_front_page();
+        return true; // Cargar en todas las páginas
     }
     
     public function render_chat_interface() {
@@ -62,20 +53,35 @@ class AI_Chat_Frontend {
             return;
         }
         ?>
-        <!-- El chat se renderiza mediante JavaScript -->
+        <!-- Chat interface will be rendered by JavaScript -->
         <?php
     }
     
     public function handle_chat_message() {
+        // Establecer tipo de contenido JSON
         header('Content-Type: application/json');
         
         try {
-            // Verificar nonce
-            if (!isset($_POST['nonce'])) {
-                throw new Exception('Nonce no proporcionado.');
+            // Verificar que sea una petición POST
+            if ('POST' !== $_SERVER['REQUEST_METHOD']) {
+                throw new Exception('Método no permitido');
             }
             
-            $nonce = sanitize_text_field($_POST['nonce']);
+            // Leer el input JSON
+            $input = file_get_contents('php://input');
+            $data = json_decode($input, true);
+            
+            // Si no hay datos JSON, usar POST normal
+            if (empty($data)) {
+                $data = $_POST;
+            }
+            
+            // Verificar nonce
+            if (!isset($data['nonce'])) {
+                throw new Exception('Nonce no proporcionado');
+            }
+            
+            $nonce = sanitize_text_field($data['nonce']);
             
             if (!wp_verify_nonce($nonce, $this->nonce_action)) {
                 error_log('Nonce verification failed. Received: ' . $nonce);
@@ -84,17 +90,17 @@ class AI_Chat_Frontend {
             }
             
             // Verificar mensaje
-            if (!isset($_POST['message'])) {
-                throw new Exception('Mensaje no proporcionado.');
+            if (!isset($data['message'])) {
+                throw new Exception('Mensaje no proporcionado');
             }
             
-            $user_message = sanitize_text_field($_POST['message']);
+            $user_message = sanitize_text_field($data['message']);
             
             if (empty(trim($user_message))) {
-                throw new Exception('El mensaje no puede estar vacío.');
+                throw new Exception('El mensaje no puede estar vacío');
             }
             
-            $session_id = isset($_POST['session_id']) ? sanitize_text_field($_POST['session_id']) : '';
+            $session_id = isset($data['session_id']) ? sanitize_text_field($data['session_id']) : '';
             
             // Procesar mensaje
             $product_analyzer = new Product_Analyzer();

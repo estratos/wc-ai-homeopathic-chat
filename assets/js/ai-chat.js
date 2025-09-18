@@ -9,7 +9,7 @@
             
             this.createChat();
             this.bindEvents();
-            this.sessionId = 'chat_' + Date.now();
+            this.sessionId = 'chat_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
         },
         
         createChat: function() {
@@ -117,20 +117,22 @@
             console.log('With nonce:', wc_ai_chat_params.nonce);
             console.log('Session ID:', this.sessionId);
             
-            const formData = {
+            // Usar JSON en lugar de form data
+            const requestData = {
                 action: 'wc_ai_chat_send_message',
                 message: message,
                 session_id: this.sessionId,
                 nonce: wc_ai_chat_params.nonce
             };
             
-            console.log('Form data:', formData);
+            console.log('Request data:', requestData);
             
             $.ajax({
                 url: wc_ai_chat_params.ajax_url,
                 type: 'POST',
                 dataType: 'json',
-                data: formData,
+                contentType: 'application/json',
+                data: JSON.stringify(requestData),
                 success: function(response) {
                     console.log('AJAX Success:', response);
                     self.removeLoading();
