@@ -1,8 +1,6 @@
 <?php
 class AI_Chat_Frontend {
     
-    private $nonce_action = 'wc_ai_chat_frontend';
-    
     public function init() {
         add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
         add_action('wp_footer', array($this, 'render_chat_interface'));
@@ -22,17 +20,13 @@ class AI_Chat_Frontend {
         wp_enqueue_style('wc-ai-chat-style', WC_AI_CHAT_PLUGIN_URL . 'assets/css/ai-chat.css', array(), WC_AI_CHAT_VERSION);
         wp_enqueue_script('wc-ai-chat-script', WC_AI_CHAT_PLUGIN_URL . 'assets/js/ai-chat.js', array('jquery'), WC_AI_CHAT_VERSION, true);
         
-        wp_localize_script('wc-ai-chat-script', 'wc_ai_chat_params', $this->get_js_params());
-    }
-    
-    private function get_js_params() {
-        return array(
+        wp_localize_script('wc-ai-chat-script', 'wc_ai_chat_params', array(
             'ajax_url' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce($this->nonce_action),
+            'nonce' => wp_create_nonce('wc_ai_chat_ajax'),
             'placeholder_image' => WC()->plugin_url() . '/assets/images/placeholder.png',
-            'loading_text' => __('Pensando...', 'wc-ai-homeopathic-chat'),
-            'error_text' => __('Error de conexión. Intenta nuevamente.', 'wc-ai-homeopathic-chat')
-        );
+            'loading_text' => 'Pensando...',
+            'error_text' => 'Error de conexión. Intenta nuevamente.'
+        ));
     }
     
     private function should_load_chat() {
@@ -41,11 +35,7 @@ class AI_Chat_Frontend {
         }
         
         $enabled = get_option('wc_ai_chat_enabled', '1');
-        if ($enabled !== '1') {
-            return false;
-        }
-        
-        return true; // Cargar en todas las páginas
+        return $enabled === '1';
     }
     
     public function render_chat_interface() {
@@ -58,49 +48,41 @@ class AI_Chat_Frontend {
     }
     
     public function handle_chat_message() {
-        // Establecer tipo de contenido JSON
+        // Limpiar cualquier output previo
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+        
+        // Establecer headers para JSON
         header('Content-Type: application/json');
+        header('Cache-Control: no-cache, must-revalidate');
         
         try {
-            // Verificar que sea una petición POST
-            if ('POST' !== $_SERVER['REQUEST_METHOD']) {
-                throw new Exception('Método no permitido');
-            }
-            
-            // Leer el input JSON
-            $input = file_get_contents('php://input');
-            $data = json_decode($input, true);
-            
-            // Si no hay datos JSON, usar POST normal
-            if (empty($data)) {
-                $data = $_POST;
-            }
-            
             // Verificar nonce
-            if (!isset($data['nonce'])) {
-                throw new Exception('Nonce no proporcionado');
+            if (!isset($_POST['nonce'])) {
+                throw new Exception('Nonce no proporcionado.');
             }
             
-            $nonce = sanitize_text_field($data['nonce']);
+            $nonce = sanitize_text_field($_POST['nonce']);
             
-            if (!wp_verify_nonce($nonce, $this->nonce_action)) {
-                error_log('Nonce verification failed. Received: ' . $nonce);
-                error_log('Expected: ' . wp_create_nonce($this->nonce_action));
+            if (!wp_verify_nonce($nonce, 'wc_ai_chat_ajax')) {
+                error_log('WC AI Chat - Nonce verification failed. Received: ' . $nonce);
+                error_log('WC AI Chat - Expected: ' . wp_create_nonce('wc_ai_chat_ajax'));
                 throw new Exception('Error de seguridad. Por favor recarga la página.');
             }
             
             // Verificar mensaje
-            if (!isset($data['message'])) {
-                throw new Exception('Mensaje no proporcionado');
+            if (!isset($_POST['message'])) {
+                throw new Exception('Mensaje no proporcionado.');
             }
             
-            $user_message = sanitize_text_field($data['message']);
+            $user_message = sanitize_text_field($_POST['message']);
             
             if (empty(trim($user_message))) {
-                throw new Exception('El mensaje no puede estar vacío');
+                throw new Exception('El mensaje no puede estar vacío.');
             }
             
-            $session_id = isset($data['session_id']) ? sanitize_text_field($data['session_id']) : '';
+            $session_id = isset($_POST['session_id']) ? sanitize_text_field($_POST['session_id']) : '';
             
             // Procesar mensaje
             $product_analyzer = new Product_Analyzer();
@@ -115,25 +97,30 @@ class AI_Chat_Frontend {
             
             // Respuesta exitosa
             $result = array(
-                'response' => $response['response'],
-                'products' => $this->prepare_products_response($matched_products)
+                'success' => true,
+                'data' => array(
+                    'response' => $response['response'],
+                    'products' => $this->prepare_products_response($matched_products),
+                    'session_id' => $session_id
+                )
             );
             
-            if ($session_id) {
-                $result['session_id'] = $session_id;
-            }
-            
-            wp_send_json_success($result);
+            echo json_encode($result);
+            exit;
             
         } catch (Exception $e) {
             error_log('WC AI Chat Error: ' . $e->getMessage());
             
-            wp_send_json_error(array(
-                'message' => $e->getMessage()
-            ), 400);
+            $error_result = array(
+                'success' => false,
+                'data' => array(
+                    'message' => $e->getMessage()
+                )
+            );
+            
+            echo json_encode($error_result);
+            exit;
         }
-        
-        wp_die();
     }
     
     private function prepare_products_response($products) {
