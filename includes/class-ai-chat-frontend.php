@@ -35,7 +35,11 @@ class AI_Chat_Frontend {
         }
         
         $enabled = get_option('wc_ai_chat_enabled', '1');
-        return $enabled === '1';
+        if ($enabled !== '1') {
+            return false;
+        }
+        
+        return is_shop() || is_product_category() || is_product() || is_page() || is_front_page();
     }
     
     public function render_chat_interface() {
@@ -43,19 +47,23 @@ class AI_Chat_Frontend {
             return;
         }
         ?>
-        <!-- Chat interface will be rendered by JavaScript -->
+        <!-- El chat se renderiza mediante JavaScript -->
         <?php
     }
     
     public function handle_chat_message() {
         // Limpiar cualquier output previo
-        while (ob_get_level()) {
+        while (ob_get_level() > 0) {
             ob_end_clean();
         }
         
         // Establecer headers para JSON
-        header('Content-Type: application/json');
-        header('Cache-Control: no-cache, must-revalidate');
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-cache, no-store, must-revalidate');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+        
+        $response = array();
         
         try {
             // Verificar nonce
@@ -66,8 +74,7 @@ class AI_Chat_Frontend {
             $nonce = sanitize_text_field($_POST['nonce']);
             
             if (!wp_verify_nonce($nonce, 'wc_ai_chat_ajax')) {
-                error_log('WC AI Chat - Nonce verification failed. Received: ' . $nonce);
-                error_log('WC AI Chat - Expected: ' . wp_create_nonce('wc_ai_chat_ajax'));
+                error_log('WC AI Chat - Nonce verification failed');
                 throw new Exception('Error de seguridad. Por favor recarga la página.');
             }
             
@@ -89,38 +96,36 @@ class AI_Chat_Frontend {
             $matched_products = $product_analyzer->find_products_by_query($user_message);
             
             $ai_handler = new AI_Handler();
-            $response = $ai_handler->get_recommendations($user_message, $matched_products);
+            $ai_response = $ai_handler->get_recommendations($user_message, $matched_products);
             
-            if (isset($response['error'])) {
-                throw new Exception($response['error']);
+            if (isset($ai_response['error'])) {
+                throw new Exception($ai_response['error']);
             }
             
             // Respuesta exitosa
-            $result = array(
+            $response = array(
                 'success' => true,
                 'data' => array(
-                    'response' => $response['response'],
+                    'response' => $ai_response['response'],
                     'products' => $this->prepare_products_response($matched_products),
                     'session_id' => $session_id
                 )
             );
             
-            echo json_encode($result);
-            exit;
-            
         } catch (Exception $e) {
             error_log('WC AI Chat Error: ' . $e->getMessage());
             
-            $error_result = array(
+            $response = array(
                 'success' => false,
                 'data' => array(
                     'message' => $e->getMessage()
                 )
             );
-            
-            echo json_encode($error_result);
-            exit;
         }
+        
+        // Enviar respuesta JSON
+        echo json_encode($response);
+        wp_die();
     }
     
     private function prepare_products_response($products) {

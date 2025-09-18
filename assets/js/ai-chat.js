@@ -1,243 +1,232 @@
 jQuery(document).ready(function($) {
     'use strict';
     
-    // Configuración básica
-    const chatContainer = $('#wc-ai-chat-container');
-    const chatButton = $('#wc-ai-chat-button');
-    const chatWindow = $('#wc-ai-chat-window');
-    const chatMessages = $('.wc-ai-chat-messages');
-    const chatForm = $('.wc-ai-chat-input-form');
-    const chatInput = $('.wc-ai-chat-input-field');
-    
-    let sessionId = 'chat_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    
-    // Inicializar chat
-    function initChat() {
-        console.log('WC AI Chat initialized');
-        console.log('Nonce:', wc_ai_chat_params.nonce);
-        console.log('AJAX URL:', wc_ai_chat_params.ajax_url);
+    const WC_AIChat = {
+        init: function() {
+            console.log('WC AI Chat initialized');
+            this.createChat();
+            this.bindEvents();
+            this.sessionId = 'chat_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        },
         
-        bindEvents();
-    }
-    
-    // Vincular eventos
-    function bindEvents() {
-        chatButton.on('click', function() {
-            chatWindow.toggleClass('active');
-            if (chatWindow.hasClass('active')) {
-                chatInput.focus();
-            }
-        });
-        
-        $('.wc-ai-chat-close').on('click', function() {
-            chatWindow.removeClass('active');
-        });
-        
-        chatForm.on('submit', function(e) {
-            e.preventDefault();
-            handleSubmit();
-        });
-    }
-    
-    // Manejar envío de mensaje
-    function handleSubmit() {
-        const message = chatInput.val().trim();
-        if (!message) return;
-        
-        chatInput.val('');
-        addMessage(message, 'user');
-        showLoading();
-        sendMessage(message);
-    }
-    
-    // Añadir mensaje al chat
-    function addMessage(message, type) {
-        const messageClass = type === 'user' ? 'user' : 'ai';
-        const messageBubble = `
-            <div class="wc-ai-message ${messageClass}">
-                <div class="wc-ai-message-bubble">${escapeHtml(message)}</div>
-            </div>
-        `;
-        
-        chatMessages.append(messageBubble);
-        scrollToBottom();
-    }
-    
-    // Mostrar indicador de carga
-    function showLoading() {
-        const loading = `
-            <div class="wc-ai-message ai">
-                <div class="wc-ai-message-bubble">
-                    <div class="wc-ai-loading">
-                        <span>${wc_ai_chat_params.loading_text}</span>
-                        <div class="wc-ai-loading-dots">
-                            <span></span>
-                            <span></span>
-                            <span></span>
+        createChat: function() {
+            const chatHTML = `
+                <div id="wc-ai-chat-container">
+                    <button id="wc-ai-chat-button" aria-label="Abrir chat">💬</button>
+                    <div id="wc-ai-chat-window">
+                        <div class="wc-ai-chat-header">
+                            <h3>Asistente Homeopático</h3>
+                            <button class="wc-ai-chat-close">×</button>
+                        </div>
+                        <div class="wc-ai-chat-messages">
+                            <div class="wc-ai-message ai">
+                                <div class="wc-ai-message-bubble">
+                                    ¡Hola! Soy tu asistente homeopático. ¿En qué puedo ayudarte hoy?
+                                </div>
+                            </div>
+                        </div>
+                        <div class="wc-ai-chat-input">
+                            <form class="wc-ai-chat-input-form">
+                                <input type="text" class="wc-ai-chat-input-field" 
+                                       placeholder="Describe tus síntomas..." 
+                                       required>
+                                <button type="submit">Enviar</button>
+                            </form>
                         </div>
                     </div>
                 </div>
-            </div>
-        `;
+            `;
+            
+            $('body').append(chatHTML);
+        },
         
-        chatMessages.append(loading);
-        scrollToBottom();
-    }
-    
-    // Remover indicador de carga
-    function removeLoading() {
-        $('.wc-ai-loading').closest('.wc-ai-message').remove();
-    }
-    
-    // Enviar mensaje al servidor
-    function sendMessage(message) {
-        console.log('Sending message:', message);
-        console.log('With nonce:', wc_ai_chat_params.nonce);
-        console.log('Session ID:', sessionId);
-        
-        const postData = {
-            action: 'wc_ai_chat_send_message',
-            message: message,
-            session_id: sessionId,
-            nonce: wc_ai_chat_params.nonce
-        };
-        
-        console.log('POST data:', postData);
-        
-        $.ajax({
-            url: wc_ai_chat_params.ajax_url,
-            type: 'POST',
-            dataType: 'json',
-            data: postData,
-            success: function(response) {
-                console.log('AJAX Success response:', response);
-                removeLoading();
-                
-                if (response.success) {
-                    handleSuccess(response.data);
-                } else {
-                    handleError(response.data);
+        bindEvents: function() {
+            const self = this;
+            
+            $('#wc-ai-chat-button').on('click', function() {
+                $('#wc-ai-chat-window').toggleClass('active');
+                if ($('#wc-ai-chat-window').hasClass('active')) {
+                    $('.wc-ai-chat-input-field').focus();
                 }
-            },
-            error: function(xhr, status, error) {
-                console.error('AJAX Error:', status, error);
-                console.error('XHR object:', xhr);
-                console.error('Response text:', xhr.responseText);
-                
-                removeLoading();
-                handleAjaxError(xhr, status, error);
-            }
-        });
-    }
-    
-    // Manejar respuesta exitosa
-    function handleSuccess(data) {
-        addMessage(data.response, 'ai');
+            });
+            
+            $('.wc-ai-chat-close').on('click', function() {
+                $('#wc-ai-chat-window').removeClass('active');
+            });
+            
+            $('.wc-ai-chat-input-form').on('submit', function(e) {
+                e.preventDefault();
+                self.handleSubmit($(this));
+            });
+        },
         
-        if (data.products && data.products.length > 0) {
-            showProducts(data.products);
-        }
+        handleSubmit: function(form) {
+            const input = form.find('.wc-ai-chat-input-field');
+            const message = input.val().trim();
+            
+            if (!message) return;
+            
+            input.val('');
+            this.addMessage(message, 'user');
+            this.showLoading();
+            this.sendMessage(message);
+        },
         
-        if (data.session_id) {
-            sessionId = data.session_id;
-        }
-    }
-    
-    // Manejar error
-    function handleError(data) {
-        const errorMsg = data.message || wc_ai_chat_params.error_text;
-        addMessage('❌ ' + errorMsg, 'ai');
-    }
-    
-    // Manejar error AJAX
-    function handleAjaxError(xhr, status, error) {
-        let errorMsg = wc_ai_chat_params.error_text;
+        addMessage: function(message, type) {
+            const bubble = `
+                <div class="wc-ai-message ${type}">
+                    <div class="wc-ai-message-bubble">${this.escapeHtml(message)}</div>
+                </div>
+            `;
+            
+            $('.wc-ai-chat-messages').append(bubble);
+            this.scrollToBottom();
+        },
         
-        // Intentar parsear la respuesta de error
-        try {
-            if (xhr.responseText) {
-                const errorResponse = JSON.parse(xhr.responseText);
-                if (errorResponse.data && errorResponse.data.message) {
-                    errorMsg = errorResponse.data.message;
-                }
-            }
-        } catch (e) {
-            console.error('Error parsing response:', e);
-        }
-        
-        if (xhr.status === 400) {
-            errorMsg = 'Error en la solicitud. Por favor recarga la página.';
-        } else if (xhr.status === 403) {
-            errorMsg = 'Error de seguridad. Recarga la página.';
-        } else if (xhr.status === 500) {
-            errorMsg = 'Error del servidor. Intenta más tarde.';
-        }
-        
-        addMessage('❌ ' + errorMsg, 'ai');
-    }
-    
-    // Mostrar productos
-    function showProducts(products) {
-        if (!products || products.length === 0) return;
-        
-        let html = `<div class="wc-ai-recommended-products">
-            <div class="wc-ai-products-title">💊 Productos recomendados:</div>`;
-        
-        products.forEach(product => {
-            html += `
-                <div class="wc-ai-product-card">
-                    <img src="${product.image}" alt="${product.name}" class="wc-ai-product-image">
-                    <div class="wc-ai-product-info">
-                        <h4 class="wc-ai-product-name">${escapeHtml(product.name)}</h4>
-                        <div class="wc-ai-product-price">${product.price}</div>
-                        <a href="${product.url}" target="_blank" class="wc-ai-product-link">Ver producto</a>
+        showLoading: function() {
+            const loading = `
+                <div class="wc-ai-message ai">
+                    <div class="wc-ai-message-bubble">
+                        <div class="wc-ai-loading">
+                            <span>${wc_ai_chat_params.loading_text}</span>
+                            <div class="wc-ai-loading-dots">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;
-        });
+            
+            $('.wc-ai-chat-messages').append(loading);
+            this.scrollToBottom();
+        },
         
-        html += '</div>';
-        chatMessages.append(html);
-        scrollToBottom();
-    }
-    
-    // Scroll al final
-    function scrollToBottom() {
-        chatMessages.scrollTop(chatMessages[0].scrollHeight);
-    }
-    
-    // Escapar HTML
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-    
-    // Test function for debugging
-    window.testChatAjax = function() {
-        console.log('Testing AJAX connection...');
+        removeLoading: function() {
+            $('.wc-ai-loading').closest('.wc-ai-message').remove();
+        },
         
-        $.ajax({
-            url: wc_ai_chat_params.ajax_url,
-            type: 'POST',
-            dataType: 'json',
-            data: {
-                action: 'wc_ai_chat_send_message',
-                message: 'test message',
-                session_id: 'test_session',
-                nonce: wc_ai_chat_params.nonce
-            },
-            success: function(response) {
-                console.log('Test AJAX Success:', response);
-            },
-            error: function(xhr, status, error) {
-                console.error('Test AJAX Error:', status, error);
-                console.error('XHR:', xhr);
-                console.error('Response:', xhr.responseText);
+        sendMessage: function(message) {
+            const self = this;
+            
+            console.log('Sending message with nonce:', wc_ai_chat_params.nonce);
+            
+            // Usar XMLHttpRequest directamente para mejor control
+            const xhr = new XMLHttpRequest();
+            const formData = new URLSearchParams();
+            
+            formData.append('action', 'wc_ai_chat_send_message');
+            formData.append('message', message);
+            formData.append('session_id', this.sessionId);
+            formData.append('nonce', wc_ai_chat_params.nonce);
+            
+            xhr.open('POST', wc_ai_chat_params.ajax_url, true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
+            
+            xhr.onload = function() {
+                self.removeLoading();
+                
+                console.log('XHR Status:', xhr.status);
+                console.log('XHR Response:', xhr.responseText);
+                
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    
+                    if (response.success) {
+                        self.handleSuccess(response.data);
+                    } else {
+                        self.handleError(response.data);
+                    }
+                } catch (e) {
+                    console.error('JSON Parse Error:', e);
+                    self.handleAjaxError(xhr, 'Parse Error', e.message);
+                }
+            };
+            
+            xhr.onerror = function() {
+                self.removeLoading();
+                console.error('XHR Network Error');
+                self.handleAjaxError(xhr, 'Network Error', '');
+            };
+            
+            xhr.timeout = 30000;
+            xhr.ontimeout = function() {
+                self.removeLoading();
+                console.error('XHR Timeout');
+                self.handleAjaxError(xhr, 'Timeout', '');
+            };
+            
+            xhr.send(formData.toString());
+        },
+        
+        handleSuccess: function(data) {
+            this.addMessage(data.response, 'ai');
+            
+            if (data.products && data.products.length > 0) {
+                this.showProducts(data.products);
             }
-        });
+            
+            if (data.session_id) {
+                this.sessionId = data.session_id;
+            }
+        },
+        
+        handleError: function(data) {
+            const errorMsg = data.message || wc_ai_chat_params.error_text;
+            this.addMessage('❌ ' + errorMsg, 'ai');
+        },
+        
+        handleAjaxError: function(xhr, status, error) {
+            let errorMsg = wc_ai_chat_params.error_text;
+            
+            if (xhr.status === 400) {
+                errorMsg = 'Error en la solicitud. Por favor recarga la página.';
+            } else if (xhr.status === 403) {
+                errorMsg = 'Error de seguridad. Recarga la página.';
+            } else if (xhr.status === 500) {
+                errorMsg = 'Error del servidor. Intenta más tarde.';
+            }
+            
+            this.addMessage('❌ ' + errorMsg, 'ai');
+        },
+        
+        showProducts: function(products) {
+            if (!products || products.length === 0) return;
+            
+            let html = `<div class="wc-ai-recommended-products">
+                <div class="wc-ai-products-title">💊 Productos recomendados:</div>`;
+            
+            products.forEach(product => {
+                html += `
+                    <div class="wc-ai-product-card">
+                        <img src="${product.image}" alt="${product.name}" class="wc-ai-product-image">
+                        <div class="wc-ai-product-info">
+                            <h4 class="wc-ai-product-name">${this.escapeHtml(product.name)}</h4>
+                            <div class="wc-ai-product-price">${product.price}</div>
+                            <a href="${product.url}" target="_blank" class="wc-ai-product-link">Ver producto</a>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            $('.wc-ai-chat-messages').append(html);
+            this.scrollToBottom();
+        },
+        
+        scrollToBottom: function() {
+            const container = $('.wc-ai-chat-messages');
+            container.scrollTop(container[0].scrollHeight);
+        },
+        
+        escapeHtml: function(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
     };
     
     // Inicializar
-    initChat();
+    WC_AIChat.init();
 });
