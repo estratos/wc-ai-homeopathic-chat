@@ -1,297 +1,356 @@
 (function($) {
     'use strict';
 
-    class HomeopathicChat {
+    class FloatingHomeopathicChat {
         constructor() {
+            this.isOpen = false;
+            this.isMinimized = false;
             this.isSending = false;
-            this.retryCount = 0;
-            this.maxRetries = 2;
             this.init();
         }
 
         init() {
+            this.createChat();
             this.bindEvents();
-            this.restoreChatState();
+            this.restoreState();
+        }
+
+        createChat() {
+            // El HTML ya está incluido en el PHP, solo inicializamos
+            this.$container = $('#wc-ai-homeopathic-chat-container');
+            this.$launcher = $('#wc-ai-chat-launcher');
+            this.$window = $('#wc-ai-chat-window');
+            this.$messages = $('.wc-ai-chat-messages');
+            this.$textarea = $('.wc-ai-chat-input textarea');
+            this.$sendBtn = $('.wc-ai-chat-send');
+            this.$whatsappBtn = $('.wc-ai-whatsapp-fallback');
+            
+            // Aplicar posición
+            this.applyPosition();
+        }
+
+        applyPosition() {
+            const position = wc_ai_homeopathic_chat_params.position;
+            this.$container.removeClass('wc-ai-chat-position-left wc-ai-chat-position-right')
+                          .addClass('wc-ai-chat-position-' + position);
         }
 
         bindEvents() {
-            // Toggle chat
-            $(document).on('click', '#wc-ai-homeopathic-chat-toggle', () => {
-                this.toggleChat();
-            });
-
-            // Close chat
-            $(document).on('click', '.wc-ai-homeopathic-chat-close', () => {
-                this.closeChat();
-            });
-
-            // Send message
-            $(document).on('click', '.wc-ai-homeopathic-chat-send', () => {
-                this.sendMessage();
-            });
-
-            // Enter key to send
-            $(document).on('keydown', '.wc-ai-homeopathic-chat-input textarea', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    this.sendMessage();
-                }
-            });
-
-            // Auto-resize textarea
-            $(document).on('input', '.wc-ai-homeopathic-chat-input textarea', (e) => {
-                this.autoResizeTextarea(e.target);
-            });
-
-            // Handle page refresh
-            $(window).on('beforeunload', () => {
-                this.saveChatState();
-            });
+            // Lanzador
+            this.$launcher.on('click', () => this.toggleChat());
+            
+            // Ventana del chat
+            this.$window.on('click', (e) => e.stopPropagation());
+            
+            // Botones de ventana
+            $('.wc-ai-chat-minimize').on('click', () => this.toggleMinimize());
+            $('.wc-ai-chat-close').on('click', () => this.closeChat());
+            
+            // Envío de mensajes
+            this.$sendBtn.on('click', () => this.sendMessage());
+            this.$textarea.on('keydown', (e) => this.handleKeydown(e));
+            this.$textarea.on('input', () => this.autoResize());
+            
+            // WhatsApp fallback
+            this.$whatsappBtn.on('click', () => this.openWhatsApp());
+            
+            // Cerrar al hacer click fuera
+            $(document).on('click', () => this.closeChat());
         }
 
         toggleChat() {
-            const $chat = $('#wc-ai-homeopathic-chat');
-            const $toggle = $('#wc-ai-homeopathic-chat-toggle');
+            if (this.isOpen) {
+                this.closeChat();
+            } else {
+                this.openChat();
+            }
+        }
+
+        openChat() {
+            this.isOpen = true;
+            this.isMinimized = false;
             
-            $chat.slideToggle(300, () => {
-                if ($chat.is(':visible')) {
-                    $toggle.addClass('active');
-                    this.focusTextarea();
-                    this.scrollToBottom();
-                } else {
-                    $toggle.removeClass('active');
-                }
-            });
+            this.$window.addClass('active').removeClass('minimized');
+            this.$launcher.addClass('active');
+            
+            this.focusInput();
+            this.scrollToBottom();
+            this.saveState();
         }
 
         closeChat() {
-            $('#wc-ai-homeopathic-chat').slideUp(300);
-            $('#wc-ai-homeopathic-chat-toggle').removeClass('active');
+            this.isOpen = false;
+            this.isMinimized = false;
+            
+            this.$window.removeClass('active minimized');
+            this.$launcher.removeClass('active');
+            
+            this.saveState();
+        }
+
+        toggleMinimize() {
+            this.isMinimized = !this.isMinimized;
+            
+            if (this.isMinimized) {
+                this.$window.addClass('minimized');
+            } else {
+                this.$window.removeClass('minimized');
+                this.focusInput();
+            }
+            
+            this.saveState();
         }
 
         async sendMessage() {
             if (this.isSending) return;
 
-            const $input = $('.wc-ai-homeopathic-chat-input textarea');
-            const message = $input.val().trim();
-
-            // Validación del mensaje
+            const message = this.$textarea.val().trim();
             if (!this.validateMessage(message)) return;
 
             this.isSending = true;
-            this.retryCount = 0;
-
-            // Preparar UI para envío
-            this.prepareForSending(message, $input);
+            this.disableInput();
 
             try {
-                await this.attemptSendMessage(message);
+                await this.processMessage(message);
             } catch (error) {
-                this.handleSendError(error);
+                this.handleError(error);
             } finally {
-                this.cleanupAfterSend($input);
+                this.enableInput();
             }
         }
 
         validateMessage(message) {
             if (!message) {
-                this.showTempMessage('empty');
+                this.showNotification(wc_ai_homeopathic_chat_params.empty_message_text, 'warning');
                 return false;
             }
-
-            if (message.length > 500) {
-                this.showTempMessage('too_long');
-                return false;
-            }
-
             return true;
         }
 
-        prepareForSending(message, $input) {
+        async processMessage(message) {
             // Añadir mensaje del usuario
-            this.addMessage('user', message);
-            $input.val('');
-            this.autoResizeTextarea($input[0]);
+            this.addUserMessage(message);
+            this.clearInput();
 
-            // Deshabilitar entrada
-            $('.wc-ai-homeopathic-chat-send').prop('disabled', true).addClass('loading');
-            $input.prop('disabled', true);
+            // Mostrar loading
+            this.showLoading();
 
-            // Mostrar indicador de carga
-            this.showLoadingIndicator();
-        }
-
-        async attemptSendMessage(message) {
-            for (let attempt = 1; attempt <= this.maxRetries + 1; attempt++) {
-                try {
-                    const response = await this.makeApiRequest(message, attempt);
-                    
-                    if (response.success) {
-                        this.handleSuccessResponse(response);
-                        return;
-                    } else {
-                        throw new Error(response.data || 'Error desconocido');
-                    }
-                } catch (error) {
-                    if (attempt > this.maxRetries) {
-                        throw error;
-                    }
-                    
-                    // Esperar antes del reintento
-                    await this.delay(Math.pow(2, attempt - 1) * 1000);
+            try {
+                const response = await this.apiRequest(message);
+                
+                if (response.whatsapp_fallback) {
+                    this.showWhatsAppFallback(response.response, message);
+                } else {
+                    this.addBotMessage(response.response, response.from_cache);
+                }
+            } catch (error) {
+                if (this.hasWhatsAppFallback()) {
+                    this.showWhatsAppFallback(error.message, message);
+                } else {
+                    throw error;
                 }
             }
         }
 
-        makeApiRequest(message, attempt) {
+        async apiRequest(message) {
             return new Promise((resolve, reject) => {
                 $.ajax({
                     url: wc_ai_homeopathic_chat_params.ajax_url,
                     type: 'POST',
                     dataType: 'json',
-                    timeout: 30000, // 30 segundos timeout
+                    timeout: 25000,
                     data: {
                         action: 'wc_ai_homeopathic_chat_send_message',
                         message: message,
                         nonce: wc_ai_homeopathic_chat_params.nonce
                     },
                     success: (response) => {
-                        resolve(response);
+                        if (response.success) {
+                            resolve(response.data);
+                        } else {
+                            reject(new Error(response.data));
+                        }
                     },
                     error: (xhr, status, error) => {
-                        let errorMessage = this.getErrorMessage(status, error);
-                        reject(new Error(errorMessage));
+                        reject(new Error(this.getErrorMessage(status)));
                     }
                 });
             });
         }
 
-        getErrorMessage(status, error) {
-            switch (status) {
-                case 'timeout':
-                    return wc_ai_homeopathic_chat_params.connection_error_text;
-                case 'error':
-                    if (error === 'Internal Server Error') {
-                        return wc_ai_homeopathic_chat_params.api_error_text;
-                    }
-                    return wc_ai_homeopathic_chat_params.connection_error_text;
-                default:
-                    return wc_ai_homeopathic_chat_params.error_text;
-            }
+        getErrorMessage(status) {
+            const messages = {
+                'timeout': 'El servicio está tardando más de lo esperado.',
+                'error': 'Error de conexión con el servicio.',
+                'parsererror': 'Error procesando la respuesta.'
+            };
+            return messages[status] || wc_ai_homeopathic_chat_params.error_text;
         }
 
-        handleSuccessResponse(response) {
-            // Remover indicador de carga
-            this.hideLoadingIndicator();
-
-            // Añadir respuesta del bot
-            const cacheIndicator = response.data.from_cache ? 
-                ' <small class="cache-indicator">(respuesta desde caché)</small>' : '';
+        addUserMessage(message) {
+            const time = new Date().toLocaleTimeString('es-MX', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
             
-            this.addMessage('bot', response.data.response + cacheIndicator);
-        }
-
-        handleSendError(error) {
-            this.hideLoadingIndicator();
+            const messageHtml = `
+                <div class="wc-ai-chat-message user">
+                    <div class="wc-ai-message-content">${this.escapeHtml(message)}</div>
+                    <div class="wc-ai-message-time">${time}</div>
+                </div>
+            `;
             
-            // Mostrar mensaje de error específico
-            const errorMessage = error.message || wc_ai_homeopathic_chat_params.error_text;
-            this.addMessage('bot', '<em class="error-message">' + errorMessage + '</em>');
+            this.$messages.append(messageHtml);
+            this.scrollToBottom();
+        }
+
+        addBotMessage(message, fromCache = false) {
+            this.hideLoading();
             
-            console.error('Error en el chat:', error);
+            const time = new Date().toLocaleTimeString('es-MX', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+            
+            const cacheBadge = fromCache ? '<small style="opacity:0.7;font-size:0.8em;">(desde caché)</small>' : '';
+            
+            const messageHtml = `
+                <div class="wc-ai-chat-message bot">
+                    <div class="wc-ai-message-content">${message} ${cacheBadge}</div>
+                    <div class="wc-ai-message-time">${time}</div>
+                </div>
+            `;
+            
+            this.$messages.append(messageHtml);
+            this.scrollToBottom();
         }
 
-        cleanupAfterSend($input) {
-            this.isSending = false;
-            $('.wc-ai-homeopathic-chat-send').prop('disabled', false).removeClass('loading');
-            $input.prop('disabled', false);
-            this.focusTextarea();
+        showWhatsAppFallback(errorMessage, userMessage) {
+            this.hideLoading();
+            
+            const whatsappUrl = this.generateWhatsAppUrl(userMessage);
+            const message = `
+                ${errorMessage}<br><br>
+                <a href="${whatsappUrl}" target="_blank" class="wc-ai-whatsapp-link">
+                    💬 ${wc_ai_homeopathic_chat_params.whatsapp_btn}
+                </a>
+            `;
+            
+            this.addBotMessage(message);
         }
 
-        showLoadingIndicator() {
+        generateWhatsAppUrl(message = '') {
+            const baseMessage = wc_ai_homeopathic_chat_params.whatsapp_message;
+            const fullMessage = message ? 
+                `${baseMessage}\n\nMi consulta: ${message}` : 
+                baseMessage;
+            
+            const encodedMessage = encodeURIComponent(fullMessage);
+            const phone = wc_ai_homeopathic_chat_params.whatsapp_number.replace(/\D/g, '');
+            
+            return `https://wa.me/${phone}?text=${encodedMessage}`;
+        }
+
+        hasWhatsAppFallback() {
+            return !!wc_ai_homeopathic_chat_params.whatsapp_number;
+        }
+
+        openWhatsApp() {
+            const url = this.generateWhatsAppUrl();
+            window.open(url, '_blank');
+        }
+
+        showLoading() {
             const loadingHtml = `
-                <div class="wc-ai-homeopathic-chat-message bot">
-                    <div class="wc-ai-homeopathic-chat-loading">
-                        <div class="loading-dots">
-                            <span></span><span></span><span></span>
+                <div class="wc-ai-chat-message bot">
+                    <div class="wc-ai-message-content">
+                        <div class="wc-ai-chat-loading">
+                            <div class="loading-dots">
+                                <span></span><span></span><span></span>
+                            </div>
+                            ${wc_ai_homeopathic_chat_params.loading_text}
                         </div>
-                        ${wc_ai_homeopathic_chat_params.loading_text}
                     </div>
                 </div>
             `;
-            $('.wc-ai-homeopathic-chat-messages').append(loadingHtml);
+            this.$messages.append(loadingHtml);
             this.scrollToBottom();
         }
 
-        hideLoadingIndicator() {
-            $('.wc-ai-homeopathic-chat-loading').parent().remove();
+        hideLoading() {
+            this.$messages.find('.wc-ai-chat-loading').parent().parent().remove();
         }
 
-        addMessage(sender, message) {
-            const messageClass = `wc-ai-homeopathic-chat-message ${sender}`;
-            const messageHtml = `<div class="${messageClass}">${this.nl2br(this.escapeHtml(message))}</div>`;
-            
-            $('.wc-ai-homeopathic-chat-messages').append(messageHtml);
-            this.scrollToBottom();
+        showNotification(message, type = 'info') {
+            // Implementar notificación toast si es necesario
+            console.log(`${type}: ${message}`);
         }
 
-        showTempMessage(type) {
-            const messages = {
-                empty: wc_ai_homeopathic_chat_params.empty_message_text,
-                too_long: 'El mensaje es demasiado largo. Máximo 500 caracteres.'
-            };
-
-            const $input = $('.wc-ai-homeopathic-chat-input textarea');
-            const originalColor = $input.css('border-color');
-            
-            // Efecto visual de error
-            $input.css('border-color', '#ff4444')
-                  .addClass('error-shake');
-            
-            setTimeout(() => {
-                $input.css('border-color', originalColor)
-                      .removeClass('error-shake');
-            }, 2000);
-
-            // Mostrar mensaje temporal
-            this.addMessage('bot', `<em class="warning-message">${messages[type]}</em>`);
+        handleKeydown(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.sendMessage();
+            }
         }
 
-        autoResizeTextarea(textarea) {
+        autoResize() {
+            const textarea = this.$textarea[0];
             textarea.style.height = 'auto';
             textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
-            textarea.style.overflowY = textarea.scrollHeight > 120 ? 'auto' : 'hidden';
         }
 
-        focusTextarea() {
-            $('.wc-ai-homeopathic-chat-input textarea').focus();
+        clearInput() {
+            this.$textarea.val('');
+            this.autoResize();
+        }
+
+        focusInput() {
+            if (this.isOpen && !this.isMinimized) {
+                setTimeout(() => this.$textarea.focus(), 100);
+            }
+        }
+
+        disableInput() {
+            this.$sendBtn.prop('disabled', true);
+            this.$textarea.prop('disabled', true);
+        }
+
+        enableInput() {
+            this.isSending = false;
+            this.$sendBtn.prop('disabled', false);
+            this.$textarea.prop('disabled', false);
+            this.focusInput();
         }
 
         scrollToBottom() {
-            const $messages = $('.wc-ai-homeopathic-chat-messages');
-            $messages.stop().animate({
-                scrollTop: $messages[0].scrollHeight
-            }, 400);
+            this.$messages.stop().animate({
+                scrollTop: this.$messages[0].scrollHeight
+            }, 300);
         }
 
-        saveChatState() {
-            if ($('#wc-ai-homeopathic-chat').is(':visible')) {
-                sessionStorage.setItem('wc_ai_chat_open', 'true');
+        saveState() {
+            const state = {
+                isOpen: this.isOpen,
+                isMinimized: this.isMinimized
+            };
+            sessionStorage.setItem('wcAiChatState', JSON.stringify(state));
+        }
+
+        restoreState() {
+            try {
+                const saved = sessionStorage.getItem('wcAiChatState');
+                if (saved) {
+                    const state = JSON.parse(saved);
+                    if (state.isOpen) {
+                        setTimeout(() => this.openChat(), 1000);
+                        if (state.isMinimized) {
+                            this.toggleMinimize();
+                        }
+                    }
+                }
+            } catch (e) {
+                // Ignorar errores de restauración
             }
-        }
-
-        restoreChatState() {
-            if (sessionStorage.getItem('wc_ai_chat_open') === 'true') {
-                setTimeout(() => {
-                    $('#wc-ai-homeopathic-chat').show();
-                    $('#wc-ai-homeopathic-chat-toggle').addClass('active');
-                    sessionStorage.removeItem('wc_ai_chat_open');
-                }, 500);
-            }
-        }
-
-        delay(ms) {
-            return new Promise(resolve => setTimeout(resolve, ms));
         }
 
         escapeHtml(text) {
@@ -304,15 +363,14 @@
             };
             return text.replace(/[&<>"']/g, m => map[m]);
         }
-
-        nl2br(str) {
-            return str.replace(/\n/g, '<br>');
-        }
     }
 
     // Inicializar cuando el documento esté listo
     $(document).ready(() => {
-        new HomeopathicChat();
+        // Solo inicializar si los parámetros están disponibles
+        if (typeof wc_ai_homeopathic_chat_params !== 'undefined') {
+            new FloatingHomeopathicChat();
+        }
     });
 
 })(jQuery);
