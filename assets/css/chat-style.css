@@ -397,3 +397,42 @@
 .wc-ai-chat-messages::-webkit-scrollbar-thumb:hover {
     background: #a8a8a8;
 }
+
+/* Estados activos - AÑADIR AL FINAL DEL ARCHIVO */
+.wc-ai-chat-launcher.active {
+    transform: scale(1.1);
+    background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+}
+
+.wc-ai-chat-send.disabled {
+    background: #ccc !important;
+    cursor: not-allowed !important;
+}
+
+/* Debug visual */
+.wc-ai-chat-launcher::after {
+    content: '';
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    width: 15px;
+    height: 15px;
+    background: #4CAF50;
+    border-radius: 50%;
+    animation: ping 1s ease-in-out infinite;
+}
+
+@keyframes ping {
+    0% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(2); opacity: 0; }
+}
+
+/* Asegurar que la ventana tenga z-index alto */
+.wc-ai-chat-window.active {
+    z-index: 100000;
+}
+
+/* Mejorar visibilidad del lanzador */
+#wc-ai-homeopathic-chat-container {
+    z-index: 99999;
+}

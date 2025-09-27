@@ -10,13 +10,13 @@
         }
 
         init() {
-            this.createChat();
+            this.cacheElements();
             this.bindEvents();
+            this.applyPosition();
             this.restoreState();
         }
 
-        createChat() {
-            // El HTML ya está incluido en el PHP, solo inicializamos
+        cacheElements() {
             this.$container = $('#wc-ai-homeopathic-chat-container');
             this.$launcher = $('#wc-ai-chat-launcher');
             this.$window = $('#wc-ai-chat-window');
@@ -24,41 +24,72 @@
             this.$textarea = $('.wc-ai-chat-input textarea');
             this.$sendBtn = $('.wc-ai-chat-send');
             this.$whatsappBtn = $('.wc-ai-whatsapp-fallback');
-            
-            // Aplicar posición
-            this.applyPosition();
+            this.$minimizeBtn = $('.wc-ai-chat-minimize');
+            this.$closeBtn = $('.wc-ai-chat-close');
         }
 
         applyPosition() {
-            const position = wc_ai_homeopathic_chat_params.position;
+            const position = wc_ai_homeopathic_chat_params.position || 'right';
             this.$container.removeClass('wc-ai-chat-position-left wc-ai-chat-position-right')
                           .addClass('wc-ai-chat-position-' + position);
         }
 
         bindEvents() {
-            // Lanzador
-            this.$launcher.on('click', () => this.toggleChat());
+            // Lanzador - CORREGIDO: Usar this correctamente
+            this.$launcher.on('click', (e) => {
+                e.stopPropagation();
+                this.toggleChat();
+            });
             
-            // Ventana del chat
-            this.$window.on('click', (e) => e.stopPropagation());
+            // Prevenir que el clic en la ventana cierre el chat
+            this.$window.on('click', (e) => {
+                e.stopPropagation();
+            });
             
-            // Botones de ventana
-            $('.wc-ai-chat-minimize').on('click', () => this.toggleMinimize());
-            $('.wc-ai-chat-close').on('click', () => this.closeChat());
+            // Botones de ventana - CORREGIDO: Usar elementos cacheados
+            this.$minimizeBtn.on('click', (e) => {
+                e.stopPropagation();
+                this.toggleMinimize();
+            });
+            
+            this.$closeBtn.on('click', (e) => {
+                e.stopPropagation();
+                this.closeChat();
+            });
             
             // Envío de mensajes
-            this.$sendBtn.on('click', () => this.sendMessage());
-            this.$textarea.on('keydown', (e) => this.handleKeydown(e));
-            this.$textarea.on('input', () => this.autoResize());
+            this.$sendBtn.on('click', (e) => {
+                e.stopPropagation();
+                this.sendMessage();
+            });
+            
+            this.$textarea.on('keydown', (e) => {
+                this.handleKeydown(e);
+            });
+            
+            this.$textarea.on('input', () => {
+                this.autoResize();
+            });
             
             // WhatsApp fallback
-            this.$whatsappBtn.on('click', () => this.openWhatsApp());
+            if (this.$whatsappBtn.length) {
+                this.$whatsappBtn.on('click', (e) => {
+                    e.stopPropagation();
+                    this.openWhatsApp();
+                });
+            }
             
-            // Cerrar al hacer click fuera
-            $(document).on('click', () => this.closeChat());
+            // Cerrar al hacer click fuera - CORREGIDO
+            $(document).on('click', () => {
+                if (this.isOpen) {
+                    this.closeChat();
+                }
+            });
         }
 
         toggleChat() {
+            console.log('Toggle chat called, current state:', this.isOpen); // Debug
+            
             if (this.isOpen) {
                 this.closeChat();
             } else {
@@ -67,6 +98,8 @@
         }
 
         openChat() {
+            console.log('Opening chat...'); // Debug
+            
             this.isOpen = true;
             this.isMinimized = false;
             
@@ -76,9 +109,13 @@
             this.focusInput();
             this.scrollToBottom();
             this.saveState();
+            
+            console.log('Chat opened successfully'); // Debug
         }
 
         closeChat() {
+            console.log('Closing chat...'); // Debug
+            
             this.isOpen = false;
             this.isMinimized = false;
             
@@ -102,9 +139,14 @@
         }
 
         async sendMessage() {
-            if (this.isSending) return;
+            if (this.isSending) {
+                console.log('Already sending, skipping...');
+                return;
+            }
 
             const message = this.$textarea.val().trim();
+            console.log('Sending message:', message); // Debug
+            
             if (!this.validateMessage(message)) return;
 
             this.isSending = true;
@@ -113,6 +155,7 @@
             try {
                 await this.processMessage(message);
             } catch (error) {
+                console.error('Error sending message:', error); // Debug
                 this.handleError(error);
             } finally {
                 this.enableInput();
@@ -124,6 +167,12 @@
                 this.showNotification(wc_ai_homeopathic_chat_params.empty_message_text, 'warning');
                 return false;
             }
+            
+            if (message.length > 500) {
+                this.showNotification('El mensaje es demasiado largo. Máximo 500 caracteres.', 'warning');
+                return false;
+            }
+            
             return true;
         }
 
@@ -144,16 +193,23 @@
                     this.addBotMessage(response.response, response.from_cache);
                 }
             } catch (error) {
+                console.error('API Error:', error); // Debug
+                
                 if (this.hasWhatsAppFallback()) {
                     this.showWhatsAppFallback(error.message, message);
                 } else {
-                    throw error;
+                    this.addBotMessage('<em style="color: #d32f2f;">' + error.message + '</em>');
                 }
             }
         }
 
-        async apiRequest(message) {
+        apiRequest(message) {
             return new Promise((resolve, reject) => {
+                if (!wc_ai_homeopathic_chat_params.api_configured) {
+                    reject(new Error('API no configurada'));
+                    return;
+                }
+
                 $.ajax({
                     url: wc_ai_homeopathic_chat_params.ajax_url,
                     type: 'POST',
@@ -162,16 +218,18 @@
                     data: {
                         action: 'wc_ai_homeopathic_chat_send_message',
                         message: message,
-                        nonce: wc_ai_homeopathic_chat_params.nonce
+                        nonce: wc_ai_homeopathic_chat_params.nce
                     },
                     success: (response) => {
+                        console.log('API Response:', response); // Debug
                         if (response.success) {
                             resolve(response.data);
                         } else {
-                            reject(new Error(response.data));
+                            reject(new Error(response.data || 'Error desconocido'));
                         }
                     },
                     error: (xhr, status, error) => {
+                        console.error('AJAX Error:', status, error); // Debug
                         reject(new Error(this.getErrorMessage(status)));
                     }
                 });
@@ -212,11 +270,11 @@
                 minute: '2-digit' 
             });
             
-            const cacheBadge = fromCache ? '<small style="opacity:0.7;font-size:0.8em;">(desde caché)</small>' : '';
+            const cacheBadge = fromCache ? ' <small style="opacity:0.7;font-size:0.8em;">(desde caché)</small>' : '';
             
             const messageHtml = `
                 <div class="wc-ai-chat-message bot">
-                    <div class="wc-ai-message-content">${message} ${cacheBadge}</div>
+                    <div class="wc-ai-message-content">${message}${cacheBadge}</div>
                     <div class="wc-ai-message-time">${time}</div>
                 </div>
             `;
@@ -240,24 +298,32 @@
         }
 
         generateWhatsAppUrl(message = '') {
-            const baseMessage = wc_ai_homeopathic_chat_params.whatsapp_message;
+            const baseMessage = wc_ai_homeopathic_chat_params.whatsapp_message || 'Hola, me interesa obtener asesoramiento homeopático';
             const fullMessage = message ? 
                 `${baseMessage}\n\nMi consulta: ${message}` : 
                 baseMessage;
             
             const encodedMessage = encodeURIComponent(fullMessage);
-            const phone = wc_ai_homeopathic_chat_params.whatsapp_number.replace(/\D/g, '');
+            const phone = (wc_ai_homeopathic_chat_params.whatsapp_number || '').replace(/\D/g, '');
+            
+            if (!phone) {
+                console.error('WhatsApp number not configured');
+                return '#';
+            }
             
             return `https://wa.me/${phone}?text=${encodedMessage}`;
         }
 
         hasWhatsAppFallback() {
-            return !!wc_ai_homeopathic_chat_params.whatsapp_number;
+            return !!(wc_ai_homeopathic_chat_params.whatsapp_number && 
+                     wc_ai_homeopathic_chat_params.whatsapp_number.trim() !== '');
         }
 
         openWhatsApp() {
             const url = this.generateWhatsAppUrl();
-            window.open(url, '_blank');
+            if (url !== '#') {
+                window.open(url, '_blank');
+            }
         }
 
         showLoading() {
@@ -278,12 +344,12 @@
         }
 
         hideLoading() {
-            this.$messages.find('.wc-ai-chat-loading').parent().parent().remove();
+            this.$messages.find('.wc-ai-chat-loading').closest('.wc-ai-chat-message').remove();
         }
 
         showNotification(message, type = 'info') {
-            // Implementar notificación toast si es necesario
-            console.log(`${type}: ${message}`);
+            // Notificación simple en la consola para debug
+            console.log(`[${type.toUpperCase()}] ${message}`);
         }
 
         handleKeydown(e) {
@@ -295,8 +361,10 @@
 
         autoResize() {
             const textarea = this.$textarea[0];
-            textarea.style.height = 'auto';
-            textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+            if (textarea) {
+                textarea.style.height = 'auto';
+                textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+            }
         }
 
         clearInput() {
@@ -305,35 +373,44 @@
         }
 
         focusInput() {
-            if (this.isOpen && !this.isMinimized) {
-                setTimeout(() => this.$textarea.focus(), 100);
+            if (this.isOpen && !this.isMinimized && this.$textarea.length) {
+                setTimeout(() => {
+                    this.$textarea.focus();
+                }, 100);
             }
         }
 
         disableInput() {
-            this.$sendBtn.prop('disabled', true);
+            this.$sendBtn.prop('disabled', true).addClass('disabled');
             this.$textarea.prop('disabled', true);
         }
 
         enableInput() {
             this.isSending = false;
-            this.$sendBtn.prop('disabled', false);
+            this.$sendBtn.prop('disabled', false).removeClass('disabled');
             this.$textarea.prop('disabled', false);
             this.focusInput();
         }
 
         scrollToBottom() {
-            this.$messages.stop().animate({
-                scrollTop: this.$messages[0].scrollHeight
-            }, 300);
+            if (this.$messages.length) {
+                this.$messages.stop().animate({
+                    scrollTop: this.$messages[0].scrollHeight
+                }, 300);
+            }
         }
 
         saveState() {
-            const state = {
-                isOpen: this.isOpen,
-                isMinimized: this.isMinimized
-            };
-            sessionStorage.setItem('wcAiChatState', JSON.stringify(state));
+            try {
+                const state = {
+                    isOpen: this.isOpen,
+                    isMinimized: this.isMinimized,
+                    timestamp: Date.now()
+                };
+                sessionStorage.setItem('wcAiChatState', JSON.stringify(state));
+            } catch (e) {
+                console.warn('Could not save chat state:', e);
+            }
         }
 
         restoreState() {
@@ -341,19 +418,25 @@
                 const saved = sessionStorage.getItem('wcAiChatState');
                 if (saved) {
                     const state = JSON.parse(saved);
-                    if (state.isOpen) {
-                        setTimeout(() => this.openChat(), 1000);
-                        if (state.isMinimized) {
-                            this.toggleMinimize();
+                    // Restaurar solo si fue guardado recientemente (últimos 30 minutos)
+                    if (state.timestamp && (Date.now() - state.timestamp) < 30 * 60 * 1000) {
+                        if (state.isOpen) {
+                            setTimeout(() => {
+                                this.openChat();
+                                if (state.isMinimized) {
+                                    this.toggleMinimize();
+                                }
+                            }, 1000);
                         }
                     }
                 }
             } catch (e) {
-                // Ignorar errores de restauración
+                console.warn('Could not restore chat state:', e);
             }
         }
 
         escapeHtml(text) {
+            if (typeof text !== 'string') return '';
             const map = {
                 '&': '&amp;',
                 '<': '&lt;',
@@ -365,12 +448,31 @@
         }
     }
 
-    // Inicializar cuando el documento esté listo
+    // Inicialización mejorada
     $(document).ready(() => {
-        // Solo inicializar si los parámetros están disponibles
-        if (typeof wc_ai_homeopathic_chat_params !== 'undefined') {
-            new FloatingHomeopathicChat();
+        console.log('Document ready, initializing chat...'); // Debug
+        
+        // Verificar que los parámetros estén disponibles
+        if (typeof wc_ai_homeopathic_chat_params === 'undefined') {
+            console.error('Chat parameters not defined');
+            return;
         }
+        
+        // Verificar que los elementos existan
+        if ($('#wc-ai-homeopathic-chat-container').length === 0) {
+            console.error('Chat container not found');
+            return;
+        }
+        
+        // Pequeño delay para asegurar que el DOM esté completamente listo
+        setTimeout(() => {
+            try {
+                new FloatingHomeopathicChat();
+                console.log('Chat initialized successfully'); // Debug
+            } catch (error) {
+                console.error('Error initializing chat:', error);
+            }
+        }, 100);
     });
 
 })(jQuery);

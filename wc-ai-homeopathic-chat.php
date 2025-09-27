@@ -3,8 +3,8 @@
  * Plugin Name: WC AI Homeopathic Chat
  * Plugin URI: https://github.com/estratos/wc-ai-homeopathic-chat
  * Description: Chatbot flotante para recomendaciones homeopáticas con WooCommerce.
- * Version: 2.0.0
- * Author: Esteban Rodríguez
+ * Version: 2.0.1
+ * Author: Julio Rodríguez
  * Author URI: https://github.com/estratos
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
