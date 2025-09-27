@@ -71,7 +71,7 @@
     bottom: 80px;
     right: 0;
     width: 380px;
-    height: 600px;
+    height: 480px;
     background: white;
     border-radius: 16px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
@@ -128,7 +128,7 @@
 
 .wc-ai-chat-title h4 {
     margin: 0;
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 600;
 }
 
@@ -137,9 +137,109 @@
     opacity: 0.9;
 }
 
+
+
 .wc-ai-chat-actions {
     display: flex;
     gap: 8px;
+}
+
+/* Iconos del chat */
+.wc-ai-chat-icon i,
+.wc-ai-chat-avatar i {
+    font-size: inherit;
+}
+
+.wc-ai-chat-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.wc-ai-chat-actions button {
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 3px;
+    transition: all 0.3s ease;
+    font-size: 14px;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.wc-ai-chat-actions button:hover {
+    background: rgba(0,0,0,0.1);
+    color: #333;
+}
+
+.wc-ai-chat-send i {
+    font-size: 14px;
+}
+
+.wc-ai-chat-status .online-dot {
+    color: #4CAF50;
+    font-size: 8px;
+    margin-right: 5px;
+}
+
+.wc-ai-message-time i {
+    margin-right: 3px;
+    opacity: 0.7;
+}
+
+.wc-ai-whatsapp-fallback i {
+    margin-right: 5px;
+    color: #25D366;
+}
+
+/* Botón flotante con icono médico */
+.wc-ai-chat-launcher .wc-ai-chat-icon {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 24px;
+    box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+    transition: all 0.3s ease;
+}
+
+.wc-ai-chat-launcher:hover .wc-ai-chat-icon {
+    transform: scale(1.1);
+    box-shadow: 0 6px 25px rgba(102, 126, 234, 0.6);
+}
+
+/* Avatar del bot */
+.wc-ai-chat-avatar {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 18px;
+}
+
+/* Efectos de hover para botones de acción */
+.wc-ai-chat-minimize:hover i {
+    transform: translateY(-1px);
+}
+
+.wc-ai-chat-close:hover i {
+    transform: rotate(90deg);
+}
+
+.wc-ai-chat-send:hover i {
+    transform: translateX(2px);
 }
 
 .wc-ai-chat-minimize,
@@ -147,8 +247,8 @@
     background: rgba(255, 255, 255, 0.2);
     border: none;
     color: white;
-    width: 28px;
-    height: 28px;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
     cursor: pointer;
     font-size: 16px;

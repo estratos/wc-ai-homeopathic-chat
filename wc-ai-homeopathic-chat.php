@@ -140,69 +140,84 @@ class WC_AI_Homeopathic_Chat
         return is_shop() || is_product_category();
     }
 
-    public function display_floating_chat()
-    {
-        if (!$this->should_display_chat()) {
-            return;
-        }
+           
 
-        $position_class = 'wc-ai-chat-position-' . $this->settings['chat_position'];
-        $whatsapp_available = !empty($this->settings['whatsapp_number']);
-?>
-        <div id="wc-ai-homeopathic-chat-container" class="<?php echo esc_attr($position_class); ?>">
-            <!-- Botón flotante -->
-            <div id="wc-ai-chat-launcher" class="wc-ai-chat-launcher">
-                <div class="wc-ai-chat-icon">💬</div>
-                <div class="wc-ai-chat-pulse"></div>
+    public function display_floating_chat() {
+    if (!$this->should_display_chat()) {
+        return;
+    }
+    
+    $position_class = 'wc-ai-chat-position-' . $this->settings['chat_position'];
+    $whatsapp_available = !empty($this->settings['whatsapp_number']);
+    ?>
+    <div id="wc-ai-homeopathic-chat-container" class="<?php echo esc_attr($position_class); ?>">
+        <!-- Botón flotante -->
+        <div id="wc-ai-chat-launcher" class="wc-ai-chat-launcher">
+            <div class="wc-ai-chat-icon">
+                <i class="fas fa-comment-medical"></i>
             </div>
-
-            <!-- Ventana del chat -->
-            <div id="wc-ai-chat-window" class="wc-ai-chat-window">
-                <div class="wc-ai-chat-header">
-                    <div class="wc-ai-chat-header-info">
-                        <div class="wc-ai-chat-avatar">⚕️</div>
-                        <div class="wc-ai-chat-title">
-                            <h4><?php esc_html_e('Asesor Homeopático', 'wc-ai-homeopathic-chat'); ?></h4>
-                            <span class="wc-ai-chat-status"><?php esc_html_e('En línea', 'wc-ai-homeopathic-chat'); ?></span>
-                        </div>
+            <div class="wc-ai-chat-pulse"></div>
+        </div>
+        
+        <!-- Ventana del chat -->
+        <div id="wc-ai-chat-window" class="wc-ai-chat-window">
+            <div class="wc-ai-chat-header">
+                <div class="wc-ai-chat-header-info">
+                    <div class="wc-ai-chat-avatar">
+                        <i class="fas fa-stethoscope"></i>
                     </div>
-                    <div class="wc-ai-chat-actions">
-                        <button type="button" class="wc-ai-chat-minimize" aria-label="<?php esc_attr_e('Minimizar chat', 'wc-ai-homeopathic-chat'); ?>">−</button>
-                        <button type="button" class="wc-ai-chat-close" aria-label="<?php esc_attr_e('Cerrar chat', 'wc-ai-homeopathic-chat'); ?>">×</button>
-                    </div>
-                </div>
-
-                <div class="wc-ai-chat-messages">
-                    <div class="wc-ai-chat-message bot">
-                        <div class="wc-ai-message-content">
-                            <?php esc_html_e('¡Hola! Soy tu asesor homeopático. ¿En qué puedo ayudarte hoy?', 'wc-ai-homeopathic-chat'); ?>
-                        </div>
-                        <div class="wc-ai-message-time"><?php echo current_time('H:i'); ?></div>
+                    <div class="wc-ai-chat-title">
+                        <h4><?php esc_html_e('Asesor Homeopático', 'wc-ai-homeopathic-chat'); ?></h4>
+                        <span class="wc-ai-chat-status">
+                            <i class="fas fa-circle online-dot"></i>
+                            <?php esc_html_e('En línea', 'wc-ai-homeopathic-chat'); ?>
+                        </span>
                     </div>
                 </div>
-
-                <div class="wc-ai-chat-input-container">
-                    <div class="wc-ai-chat-input">
-                        <textarea placeholder="<?php esc_attr_e('Escribe tu mensaje...', 'wc-ai-homeopathic-chat'); ?>"
-                            rows="1"
-                            maxlength="500"></textarea>
-                        <button type="button" class="wc-ai-chat-send">
-                            <span class="wc-ai-send-icon">↑</span>
-                        </button>
-                    </div>
-                    <?php if ($whatsapp_available): ?>
-                        <div class="wc-ai-chat-fallback">
-                            <button type="button" class="wc-ai-whatsapp-fallback">
-                                <span class="wc-ai-whatsapp-icon">💬</span>
-                                <?php esc_html_e('Continuar por WhatsApp', 'wc-ai-homeopathic-chat'); ?>
-                            </button>
-                        </div>
-                    <?php endif; ?>
+                <div class="wc-ai-chat-actions">
+                    <button type="button" class="wc-ai-chat-minimize" aria-label="<?php esc_attr_e('Minimizar chat', 'wc-ai-homeopathic-chat'); ?>">
+                        <i class="fas fa-window-minimize"></i>
+                    </button>
+                    <button type="button" class="wc-ai-chat-close" aria-label="<?php esc_attr_e('Cerrar chat', 'wc-ai-homeopathic-chat'); ?>">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
+            </div>
+            
+            <div class="wc-ai-chat-messages">
+                <div class="wc-ai-chat-message bot">
+                    <div class="wc-ai-message-content">
+                        <?php esc_html_e('¡Hola! Soy tu asesor homeopático. ¿En qué puedo ayudarte hoy?', 'wc-ai-homeopathic-chat'); ?>
+                    </div>
+                    <div class="wc-ai-message-time">
+                        <i class="far fa-clock"></i>
+                        <?php echo current_time('H:i'); ?>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="wc-ai-chat-input-container">
+                <div class="wc-ai-chat-input">
+                    <textarea placeholder="<?php esc_attr_e('Escribe tu mensaje...', 'wc-ai-homeopathic-chat'); ?>" 
+                              rows="1" 
+                              maxlength="500"></textarea>
+                    <button type="button" class="wc-ai-chat-send">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+                <?php if ($whatsapp_available): ?>
+                <div class="wc-ai-chat-fallback">
+                    <button type="button" class="wc-ai-whatsapp-fallback">
+                        <i class="fab fa-whatsapp"></i>
+                        <?php esc_html_e('Continuar por WhatsApp', 'wc-ai-homeopathic-chat'); ?>
+                    </button>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
+    </div>
     <?php
-    }
+}
 
     public function ajax_send_message()
     {
