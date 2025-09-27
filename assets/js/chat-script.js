@@ -218,7 +218,7 @@
                     data: {
                         action: 'wc_ai_homeopathic_chat_send_message',
                         message: message,
-                        nonce: wc_ai_homeopathic_chat_params.nce
+                        nonce: wc_ai_homeopathic_chat_params.nonce
                     },
                     success: (response) => {
                         console.log('API Response:', response); // Debug
