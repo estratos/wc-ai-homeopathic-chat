@@ -88,7 +88,7 @@ class WC_AI_Homeopathic_Chat
         return $links;
     }
 
-    
+
     public function enqueue_scripts()
     {
         if (!$this->should_display_chat()) {
@@ -104,10 +104,10 @@ class WC_AI_Homeopathic_Chat
 
         // Agregar FontAwesome
         wp_enqueue_style(
-        'font-awesome',
-        'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
-        array(),
-        '6.4.0'
+            'font-awesome',
+            'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
+            array(),
+            '6.4.0'
         );
 
         wp_enqueue_script(
@@ -149,84 +149,92 @@ class WC_AI_Homeopathic_Chat
         return is_shop() || is_product_category();
     }
 
-           
 
-    public function display_floating_chat() {
-    if (!$this->should_display_chat()) {
-        return;
-    }
-    
-    $position_class = 'wc-ai-chat-position-' . $this->settings['chat_position'];
-    $whatsapp_available = !empty($this->settings['whatsapp_number']);
-    ?>
-    <div id="wc-ai-homeopathic-chat-container" class="<?php echo esc_attr($position_class); ?>">
-        <!-- Botón flotante -->
-        <div id="wc-ai-chat-launcher" class="wc-ai-chat-launcher">
-            <div class="wc-ai-chat-icon">
-                <i class="fas fa-comment-medical"></i>
+
+    public function display_floating_chat()
+    {
+        if (!$this->should_display_chat()) {
+            return;
+        }
+
+        $position_class = 'wc-ai-chat-position-' . $this->settings['chat_position'];
+        $whatsapp_available = !empty($this->settings['whatsapp_number']);
+?>
+        <div id="wc-ai-homeopathic-chat-container" class="<?php echo esc_attr($position_class); ?>">
+            <!-- Botón flotante -->
+            <div id="wc-ai-chat-launcher" class="wc-ai-chat-launcher">
+                <div class="wc-ai-chat-icon">
+                    <i class="fas fa-comment-medical"></i>
+                </div>
+                <div class="wc-ai-chat-pulse"></div>
             </div>
-            <div class="wc-ai-chat-pulse"></div>
+
+            <!-- Ventana del chat -->
+            <div id="wc-ai-chat-window" class="wc-ai-chat-window">
+                <div class="wc-ai-chat-header">
+                    <div class="wc-ai-chat-header-info">
+                        <div class="wc-ai-chat-avatar">
+                            <i class="fas fa-stethoscope"></i>
+                        </div>
+                        <div class="wc-ai-chat-title">
+                            <h4><?php esc_html_e('Asesor Homeopático', 'wc-ai-homeopathic-chat'); ?></h4>
+                            <span class="wc-ai-chat-status">
+                                <i class="fas fa-circle online-dot"></i>
+                                <?php esc_html_e('En línea', 'wc-ai-homeopathic-chat'); ?>
+                            </span>
+                        </div>
+                    </div>
+
+
+                    
+                    <div class="wc-ai-chat-actions">
+                        <button type="button" class="wc-ai-chat-minimize" aria-label="<?php esc_attr_e('Minimizar chat', 'wc-ai-homeopathic-chat'); ?>">
+                            <svg class="wc-ai-icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M5 12h14" />
+                            </svg>
+                        </button>
+                        <button type="button" class="wc-ai-chat-close" aria-label="<?php esc_attr_e('Cerrar chat', 'wc-ai-homeopathic-chat'); ?>">
+                            <svg class="wc-ai-icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M18 6L6 18M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="wc-ai-chat-messages">
+                    <div class="wc-ai-chat-message bot">
+                        <div class="wc-ai-message-content">
+                            <?php esc_html_e('¡Hola! Soy tu asesor homeopático. ¿En qué puedo ayudarte hoy?', 'wc-ai-homeopathic-chat'); ?>
+                        </div>
+                        <div class="wc-ai-message-time">
+                            <i class="far fa-clock"></i>
+                            <?php echo current_time('H:i'); ?>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="wc-ai-chat-input-container">
+                    <div class="wc-ai-chat-input">
+                        <textarea placeholder="<?php esc_attr_e('Escribe tu mensaje...', 'wc-ai-homeopathic-chat'); ?>"
+                            rows="1"
+                            maxlength="500"></textarea>
+                        <button type="button" class="wc-ai-chat-send">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                    <?php if ($whatsapp_available): ?>
+                        <div class="wc-ai-chat-fallback">
+                            <button type="button" class="wc-ai-whatsapp-fallback">
+                                <i class="fab fa-whatsapp"></i>
+                                <?php esc_html_e('Continuar por WhatsApp', 'wc-ai-homeopathic-chat'); ?>
+                            </button>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
         </div>
-        
-        <!-- Ventana del chat -->
-        <div id="wc-ai-chat-window" class="wc-ai-chat-window">
-            <div class="wc-ai-chat-header">
-                <div class="wc-ai-chat-header-info">
-                    <div class="wc-ai-chat-avatar">
-                        <i class="fas fa-stethoscope"></i>
-                    </div>
-                    <div class="wc-ai-chat-title">
-                        <h4><?php esc_html_e('Asesor Homeopático', 'wc-ai-homeopathic-chat'); ?></h4>
-                        <span class="wc-ai-chat-status">
-                            <i class="fas fa-circle online-dot"></i>
-                            <?php esc_html_e('En línea', 'wc-ai-homeopathic-chat'); ?>
-                        </span>
-                    </div>
-                </div>
-                <div class="wc-ai-chat-actions">
-                    <button type="button" class="wc-ai-chat-minimize" aria-label="<?php esc_attr_e('Minimizar chat', 'wc-ai-homeopathic-chat'); ?>">
-                        <i class="fas fa-window-minimize"></i>
-                    </button>
-                    <button type="button" class="wc-ai-chat-close" aria-label="<?php esc_attr_e('Cerrar chat', 'wc-ai-homeopathic-chat'); ?>">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-            </div>
-            
-            <div class="wc-ai-chat-messages">
-                <div class="wc-ai-chat-message bot">
-                    <div class="wc-ai-message-content">
-                        <?php esc_html_e('¡Hola! Soy tu asesor homeopático. ¿En qué puedo ayudarte hoy?', 'wc-ai-homeopathic-chat'); ?>
-                    </div>
-                    <div class="wc-ai-message-time">
-                        <i class="far fa-clock"></i>
-                        <?php echo current_time('H:i'); ?>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="wc-ai-chat-input-container">
-                <div class="wc-ai-chat-input">
-                    <textarea placeholder="<?php esc_attr_e('Escribe tu mensaje...', 'wc-ai-homeopathic-chat'); ?>" 
-                              rows="1" 
-                              maxlength="500"></textarea>
-                    <button type="button" class="wc-ai-chat-send">
-                        <i class="fas fa-paper-plane"></i>
-                    </button>
-                </div>
-                <?php if ($whatsapp_available): ?>
-                <div class="wc-ai-chat-fallback">
-                    <button type="button" class="wc-ai-whatsapp-fallback">
-                        <i class="fab fa-whatsapp"></i>
-                        <?php esc_html_e('Continuar por WhatsApp', 'wc-ai-homeopathic-chat'); ?>
-                    </button>
-                </div>
-                <?php endif; ?>
-            </div>
-        </div>
-    </div>
     <?php
-}
+    }
 
     public function ajax_send_message()
     {
@@ -343,9 +351,9 @@ class WC_AI_Homeopathic_Chat
         );
 
         // USAR EL PROMPT PERSONALIZADO DEL SISTEMA
-    $system_prompt = !empty($this->settings['system_prompt']) 
-        ? $this->settings['system_prompt'] 
-        : 'Eres un homeópata experto. Sé conciso y profesional.';
+        $system_prompt = !empty($this->settings['system_prompt'])
+            ? $this->settings['system_prompt']
+            : 'Eres un homeópata experto. Sé conciso y profesional.';
 
         $body = array(
             'model' => 'deepseek-chat',
@@ -394,18 +402,19 @@ class WC_AI_Homeopathic_Chat
         return "Usuario pregunta: {$message}\n\nProductos disponibles:\n{$products_info}\n\nResponde como homeópata experto, sé conciso y útil.";
     }
 
-    private function build_prompt($message, $products_info) {
-    // Puedes personalizar cómo se construye el prompt aquí
-    $base_prompt = "Consulta del usuario: {$message}";
-    
-    if (!empty($products_info)) {
-        $base_prompt .= "\n\nInformación de productos disponibles:\n{$products_info}";
+    private function build_prompt($message, $products_info)
+    {
+        // Puedes personalizar cómo se construye el prompt aquí
+        $base_prompt = "Consulta del usuario: {$message}";
+
+        if (!empty($products_info)) {
+            $base_prompt .= "\n\nInformación de productos disponibles:\n{$products_info}";
+        }
+
+        $base_prompt .= "\n\nPor favor, proporciona una recomendación homeopática adecuada:";
+
+        return $base_prompt;
     }
-    
-    $base_prompt .= "\n\nPor favor, proporciona una recomendación homeopática adecuada:";
-    
-    return $base_prompt;
-}
 
     private function get_default_system_prompt()
     {
@@ -667,42 +676,42 @@ Responde en el mismo idioma que el usuario.";
                         </div>
                     </div>
                 </div>
-                
-                            <!-- NUEVA SECCIÓN: PROMPT DEL SISTEMA -->
-            <div class="card" style="margin-top: 20px;">
-                <h2><?php esc_html_e('Configuración del Prompt del Sistema', 'wc-ai-homeopathic-chat'); ?></h2>
-                
-                <table class="form-table">
-                    <tr>
-                        <th scope="row">
-                            <label for="wc_ai_homeopathic_chat_system_prompt">
-                                <?php esc_html_e('Prompt del Sistema', 'wc-ai-homeopathic-chat'); ?>
-                            </label>
-                        </th>
-                        <td>
-                            <textarea id="wc_ai_homeopathic_chat_system_prompt"
-                                      name="wc_ai_homeopathic_chat_system_prompt"
-                                      class="large-text"
-                                      rows="12"
-                                      style="font-family: monospace; font-size: 13px;"
-                                      placeholder="<?php echo esc_attr($this->get_default_system_prompt()); ?>"><?php echo esc_textarea($this->settings['system_prompt']); ?></textarea>
-                            <p class="description">
-                                <?php esc_html_e('Este prompt define la personalidad y comportamiento del asistente. Usa variables como {products} para incluir información de productos.', 'wc-ai-homeopathic-chat'); ?>
-                            </p>
-                            <div style="margin-top: 10px;">
-                                <button type="button" id="reset-prompt" class="button button-secondary">
-                                    <?php esc_html_e('Restablecer Prompt por Defecto', 'wc-ai-homeopathic-chat'); ?>
-                                </button>
-                                <button type="button" id="preview-prompt" class="button button-secondary">
-                                    <?php esc_html_e('Vista Previa del Prompt Actual', 'wc-ai-homeopathic-chat'); ?>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                </table>
-            </div>
-            
-            
+
+                <!-- NUEVA SECCIÓN: PROMPT DEL SISTEMA -->
+                <div class="card" style="margin-top: 20px;">
+                    <h2><?php esc_html_e('Configuración del Prompt del Sistema', 'wc-ai-homeopathic-chat'); ?></h2>
+
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">
+                                <label for="wc_ai_homeopathic_chat_system_prompt">
+                                    <?php esc_html_e('Prompt del Sistema', 'wc-ai-homeopathic-chat'); ?>
+                                </label>
+                            </th>
+                            <td>
+                                <textarea id="wc_ai_homeopathic_chat_system_prompt"
+                                    name="wc_ai_homeopathic_chat_system_prompt"
+                                    class="large-text"
+                                    rows="12"
+                                    style="font-family: monospace; font-size: 13px;"
+                                    placeholder="<?php echo esc_attr($this->get_default_system_prompt()); ?>"><?php echo esc_textarea($this->settings['system_prompt']); ?></textarea>
+                                <p class="description">
+                                    <?php esc_html_e('Este prompt define la personalidad y comportamiento del asistente. Usa variables como {products} para incluir información de productos.', 'wc-ai-homeopathic-chat'); ?>
+                                </p>
+                                <div style="margin-top: 10px;">
+                                    <button type="button" id="reset-prompt" class="button button-secondary">
+                                        <?php esc_html_e('Restablecer Prompt por Defecto', 'wc-ai-homeopathic-chat'); ?>
+                                    </button>
+                                    <button type="button" id="preview-prompt" class="button button-secondary">
+                                        <?php esc_html_e('Vista Previa del Prompt Actual', 'wc-ai-homeopathic-chat'); ?>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+
+
 
                 <?php submit_button(); ?>
             </form>
@@ -720,25 +729,25 @@ Responde en el mismo idioma que el usuario.";
                 height: 100%;
             }
         </style>
-         <script>
-    jQuery(document).ready(function($) {
-        // Restablecer prompt por defecto
-        $('#reset-prompt').on('click', function() {
-            if (confirm('¿Estás seguro de que quieres restablecer el prompt por defecto? Se perderán los cambios actuales.')) {
-                var defaultPrompt = `<?php echo esc_js($this->get_default_system_prompt()); ?>`;
-                $('#wc_ai_homeopathic_chat_system_prompt').val(defaultPrompt);
-            }
-        });
+        <script>
+            jQuery(document).ready(function($) {
+                // Restablecer prompt por defecto
+                $('#reset-prompt').on('click', function() {
+                    if (confirm('¿Estás seguro de que quieres restablecer el prompt por defecto? Se perderán los cambios actuales.')) {
+                        var defaultPrompt = `<?php echo esc_js($this->get_default_system_prompt()); ?>`;
+                        $('#wc_ai_homeopathic_chat_system_prompt').val(defaultPrompt);
+                    }
+                });
 
-        // Vista previa del prompt
-        $('#preview-prompt').on('click', function() {
-            var currentPrompt = $('#wc_ai_homeopathic_chat_system_prompt').val();
-            if (!currentPrompt.trim()) {
-                currentPrompt = `<?php echo esc_js($this->get_default_system_prompt()); ?>`;
-            }
-            
-            var previewWindow = window.open('', 'Prompt Preview', 'width=800,height=600,scrollbars=yes');
-            previewWindow.document.write(`
+                // Vista previa del prompt
+                $('#preview-prompt').on('click', function() {
+                    var currentPrompt = $('#wc_ai_homeopathic_chat_system_prompt').val();
+                    if (!currentPrompt.trim()) {
+                        currentPrompt = `<?php echo esc_js($this->get_default_system_prompt()); ?>`;
+                    }
+
+                    var previewWindow = window.open('', 'Prompt Preview', 'width=800,height=600,scrollbars=yes');
+                    previewWindow.document.write(`
                 <html>
                 <head><title>Vista Previa del Prompt</title></head>
                 <body style="font-family: monospace; white-space: pre-wrap; padding: 20px; background: #f6f7f7;">
@@ -752,10 +761,10 @@ Responde en el mismo idioma que el usuario.";
                 </body>
                 </html>
             `);
-            previewWindow.document.close();
-        });
-    });
-    </script>
+                    previewWindow.document.close();
+                });
+            });
+        </script>
 
     <?php
     }
