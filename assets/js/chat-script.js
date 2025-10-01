@@ -35,7 +35,7 @@
         }
 
         bindEvents() {
-            // Lanzador - CORREGIDO: Usar this correctamente
+            // Lanzador
             this.$launcher.on('click', (e) => {
                 e.stopPropagation();
                 this.toggleChat();
@@ -46,7 +46,7 @@
                 e.stopPropagation();
             });
             
-            // Botones de ventana - CORREGIDO: Usar elementos cacheados
+            // Botones de ventana
             this.$minimizeBtn.on('click', (e) => {
                 e.stopPropagation();
                 this.toggleMinimize();
@@ -79,7 +79,7 @@
                 });
             }
             
-            // Cerrar al hacer click fuera - CORREGIDO
+            // Cerrar al hacer click fuera
             $(document).on('click', () => {
                 if (this.isOpen) {
                     this.closeChat();
@@ -88,7 +88,7 @@
         }
 
         toggleChat() {
-            console.log('Toggle chat called, current state:', this.isOpen); // Debug
+            console.log('Toggle chat called, current state:', this.isOpen);
             
             if (this.isOpen) {
                 this.closeChat();
@@ -98,7 +98,7 @@
         }
 
         openChat() {
-            console.log('Opening chat...'); // Debug
+            console.log('Opening chat...');
             
             this.isOpen = true;
             this.isMinimized = false;
@@ -110,11 +110,11 @@
             this.scrollToBottom();
             this.saveState();
             
-            console.log('Chat opened successfully'); // Debug
+            console.log('Chat opened successfully');
         }
 
         closeChat() {
-            console.log('Closing chat...'); // Debug
+            console.log('Closing chat...');
             
             this.isOpen = false;
             this.isMinimized = false;
@@ -145,7 +145,7 @@
             }
 
             const message = this.$textarea.val().trim();
-            console.log('Sending message:', message); // Debug
+            console.log('Sending message:', message);
             
             if (!this.validateMessage(message)) return;
 
@@ -155,7 +155,7 @@
             try {
                 await this.processMessage(message);
             } catch (error) {
-                console.error('Error sending message:', error); // Debug
+                console.error('Error sending message:', error);
                 this.handleError(error);
             } finally {
                 this.enableInput();
@@ -193,7 +193,7 @@
                     this.addBotMessage(response.response, response.from_cache);
                 }
             } catch (error) {
-                console.error('API Error:', error); // Debug
+                console.error('API Error:', error);
                 
                 if (this.hasWhatsAppFallback()) {
                     this.showWhatsAppFallback(error.message, message);
@@ -221,7 +221,7 @@
                         nonce: wc_ai_homeopathic_chat_params.nonce
                     },
                     success: (response) => {
-                        console.log('API Response:', response); // Debug
+                        console.log('API Response:', response);
                         if (response.success) {
                             resolve(response.data);
                         } else {
@@ -229,7 +229,7 @@
                         }
                     },
                     error: (xhr, status, error) => {
-                        console.error('AJAX Error:', status, error); // Debug
+                        console.error('AJAX Error:', status, error);
                         reject(new Error(this.getErrorMessage(status)));
                     }
                 });
@@ -254,7 +254,7 @@
             const messageHtml = `
                 <div class="wc-ai-chat-message user">
                     <div class="wc-ai-message-content">${this.escapeHtml(message)}</div>
-                    <div class="wc-ai-message-time">${time}</div>
+                    <div class="wc-ai-message-time">🕒 ${time}</div>
                 </div>
             `;
             
@@ -275,7 +275,7 @@
             const messageHtml = `
                 <div class="wc-ai-chat-message bot">
                     <div class="wc-ai-message-content">${message}${cacheBadge}</div>
-                    <div class="wc-ai-message-time">${time}</div>
+                    <div class="wc-ai-message-time">🕒 ${time}</div>
                 </div>
             `;
             
@@ -348,7 +348,7 @@
         }
 
         showNotification(message, type = 'info') {
-            // Notificación simple en la consola para debug
+            // Notificación simple
             console.log(`[${type.toUpperCase()}] ${message}`);
         }
 
@@ -418,7 +418,6 @@
                 const saved = sessionStorage.getItem('wcAiChatState');
                 if (saved) {
                     const state = JSON.parse(saved);
-                    // Restaurar solo si fue guardado recientemente (últimos 30 minutos)
                     if (state.timestamp && (Date.now() - state.timestamp) < 30 * 60 * 1000) {
                         if (state.isOpen) {
                             setTimeout(() => {
@@ -448,27 +447,24 @@
         }
     }
 
-    // Inicialización mejorada
+    // Inicialización
     $(document).ready(() => {
-        console.log('Document ready, initializing chat...'); // Debug
+        console.log('Document ready, initializing chat...');
         
-        // Verificar que los parámetros estén disponibles
         if (typeof wc_ai_homeopathic_chat_params === 'undefined') {
             console.error('Chat parameters not defined');
             return;
         }
         
-        // Verificar que los elementos existan
         if ($('#wc-ai-homeopathic-chat-container').length === 0) {
             console.error('Chat container not found');
             return;
         }
         
-        // Pequeño delay para asegurar que el DOM esté completamente listo
         setTimeout(() => {
             try {
                 new FloatingHomeopathicChat();
-                console.log('Chat initialized successfully'); // Debug
+                console.log('Chat initialized successfully');
             } catch (error) {
                 console.error('Error initializing chat:', error);
             }
