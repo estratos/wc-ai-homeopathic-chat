@@ -68,4 +68,90 @@ class WC_AI_Chat_Symptoms_DB
         
         return $result !== false ? $wpdb->insert_id : false;
     }
+
+    // NUEVOS MÉTODOS REQUERIDOS POR LA CLASE DE APRENDIZAJE
+    
+    public function get_symptom_by_name($symptom_name)
+    {
+        global $wpdb;
+        
+        return $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$this->table_symptoms} WHERE symptom_name = %s",
+            $symptom_name
+        ));
+    }
+
+    public function relate_product_to_symptom($symptom_id, $product_id, $relevance_score = 10, $notes = '')
+    {
+        global $wpdb;
+        
+        // Verificar si la relación ya existe
+        $existing = $wpdb->get_var($wpdb->prepare(
+            "SELECT relation_id FROM {$this->table_symptom_products} 
+             WHERE symptom_id = %d AND product_id = %d",
+            $symptom_id, $product_id
+        ));
+        
+        if ($existing) {
+            // Actualizar relación existente
+            return $wpdb->update(
+                $this->table_symptom_products,
+                array(
+                    'relevance_score' => $relevance_score,
+                    'notes' => $notes,
+                    'created_at' => current_time('mysql')
+                ),
+                array('relation_id' => $existing)
+            );
+        } else {
+            // Crear nueva relación
+            return $wpdb->insert(
+                $this->table_symptom_products,
+                array(
+                    'symptom_id' => $symptom_id,
+                    'product_id' => $product_id,
+                    'relevance_score' => $relevance_score,
+                    'notes' => $notes,
+                    'created_at' => current_time('mysql')
+                )
+            );
+        }
+    }
+
+    public function get_all_symptoms()
+    {
+        global $wpdb;
+        
+        return $wpdb->get_results(
+            "SELECT * FROM {$this->table_symptoms} ORDER BY symptom_name"
+        );
+    }
+
+    public function get_symptom_stats()
+    {
+        global $wpdb;
+        
+        return array(
+            'total_symptoms' => $wpdb->get_var("SELECT COUNT(*) FROM {$this->table_symptoms}"),
+            'total_relations' => $wpdb->get_var("SELECT COUNT(*) FROM {$this->table_symptom_products}"),
+            'products_with_symptoms' => $wpdb->get_var("SELECT COUNT(DISTINCT product_id) FROM {$this->table_symptom_products}")
+        );
+    }
+
+    public function delete_symptom($symptom_id)
+    {
+        global $wpdb;
+        
+        // Eliminar relaciones primero
+        $wpdb->delete(
+            $this->table_symptom_products,
+            array('symptom_id' => $symptom_id)
+        );
+        
+        // Eliminar síntoma
+        return $wpdb->delete(
+            $this->table_symptoms,
+            array('symptom_id' => $symptom_id)
+        );
+    }
 }

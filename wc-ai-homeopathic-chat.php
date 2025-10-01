@@ -3,7 +3,7 @@
  * Plugin Name: WC AI Homeopathic Chat
  * Plugin URI: https://github.com/estratos/wc-ai-homeopathic-chat
  * Description: Chatbot flotante para recomendaciones homeopáticas con WooCommerce y sistema de aprendizaje automático.
- * Version: 2.1.6
+ * Version: 2.1.7
  * Author: Julio Rodríguez
  * Author URI: https://github.com/estratos
  * License: GPL v2 or later
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('WC_AI_HOMEOPATHIC_CHAT_VERSION', '2.1.6');
+define('WC_AI_HOMEOPATHIC_CHAT_VERSION', '2.1.7');
 define('WC_AI_HOMEOPATHIC_CHAT_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('WC_AI_HOMEOPATHIC_CHAT_PLUGIN_PATH', plugin_dir_path(__FILE__));
 define('WC_AI_HOMEOPATHIC_CHAT_CACHE_TIME', 30 * DAY_IN_SECONDS);
@@ -840,43 +840,120 @@ class WC_AI_Homeopathic_Chat
     }
 
     private function import_base_symptoms()
-    {
-        if (!is_object($this->symptoms_db)) {
-            return 0;
-        }
+{
+    if (!is_object($this->symptoms_db)) {
+        error_log('WC AI Chat: Symptoms DB not available for import');
+        return 0;
+    }
 
-        $base_symptoms = array(
-            array(
-                'symptom_name' => 'dolor de cabeza',
-                'synonyms' => 'cefalea, migraña, dolor cabeza, jaqueca',
-                'category' => 'neurológico',
-                'severity' => 'moderado',
-                'symptom_description' => 'Dolor o molestia en la cabeza, el cuero cabelludo o el cuello'
-            ),
-            // ... (el resto de los síntomas se mantienen igual)
-            array(
-                'symptom_name' => 'mareo',
-                'synonyms' => 'vértigo, náuseas, inestabilidad',
-                'category' => 'neurológico',
-                'severity' => 'leve',
-                'symptom_description' => 'Sensación de aturdimiento o inestabilidad'
-            )
-        );
+    $base_symptoms = array(
+        array(
+            'symptom_name' => 'dolor de cabeza',
+            'synonyms' => 'cefalea, migraña, dolor cabeza, jaqueca',
+            'category' => 'neurológico',
+            'severity' => 'moderado',
+            'symptom_description' => 'Dolor o molestia en la cabeza, el cuero cabelludo o el cuello'
+        ),
+        array(
+            'symptom_name' => 'insomnio',
+            'synonyms' => 'problemas para dormir, dificultad para dormir, sueño interrumpido',
+            'category' => 'sueño',
+            'severity' => 'leve',
+            'symptom_description' => 'Dificultad para conciliar el sueño o permanecer dormido'
+        ),
+        array(
+            'symptom_name' => 'ansiedad',
+            'synonyms' => 'nerviosismo, angustia, estrés, preocupación excesiva',
+            'category' => 'emocional',
+            'severity' => 'moderado',
+            'symptom_description' => 'Sentimiento de miedo, temor e inquietud'
+        ),
+        array(
+            'symptom_name' => 'dolor muscular',
+            'synonyms' => 'contractura, calambre, dolor espalda, lumbalgia',
+            'category' => 'muscular',
+            'severity' => 'leve',
+            'symptom_description' => 'Dolor o inflamación en los músculos'
+        ),
+        array(
+            'symptom_name' => 'gripe',
+            'synonyms' => 'resfriado, congestión, tos, fiebre, catarro',
+            'category' => 'respiratorio',
+            'severity' => 'moderado',
+            'symptom_description' => 'Infección viral que afecta el sistema respiratorio'
+        ),
+        array(
+            'symptom_name' => 'acidez',
+            'synonyms' => 'agruras, reflujo, indigestión, ardor estómago',
+            'category' => 'digestivo',
+            'severity' => 'leve',
+            'symptom_description' => 'Sensación de ardor en el pecho o garganta'
+        ),
+        array(
+            'symptom_name' => 'alergia',
+            'synonyms' => 'estornudos, picazón, rinitis, congestión nasal',
+            'category' => 'alérgico',
+            'severity' => 'leve',
+            'symptom_description' => 'Reacción del sistema inmunológico a sustancias extrañas'
+        ),
+        array(
+            'symptom_name' => 'artritis',
+            'synonyms' => 'dolor articular, rigidez, inflamación articulaciones',
+            'category' => 'articular',
+            'severity' => 'moderado',
+            'symptom_description' => 'Inflamación y dolor en las articulaciones'
+        ),
+        array(
+            'symptom_name' => 'depresión',
+            'synonyms' => 'tristeza, desánimo, apatía, desesperanza',
+            'category' => 'emocional',
+            'severity' => 'moderado',
+            'symptom_description' => 'Trastorno del estado de ánimo que causa sentimientos de tristeza'
+        ),
+        array(
+            'symptom_name' => 'fatiga',
+            'synonyms' => 'cansancio, agotamiento, debilidad, letargo',
+            'category' => 'general',
+            'severity' => 'leve',
+            'symptom_description' => 'Falta de energía o agotamiento físico y mental'
+        ),
+        array(
+            'symptom_name' => 'estreñimiento',
+            'synonyms' => 'constipación, dificultad para defecar',
+            'category' => 'digestivo',
+            'severity' => 'leve',
+            'symptom_description' => 'Dificultad para evacuar los intestinos'
+        ),
+        array(
+            'symptom_name' => 'mareo',
+            'synonyms' => 'vértigo, náuseas, inestabilidad',
+            'category' => 'neurológico',
+            'severity' => 'leve',
+            'symptom_description' => 'Sensación de aturdimiento o inestabilidad'
+        )
+    );
 
-        $imported = 0;
-        foreach ($base_symptoms as $symptom) {
+    $imported = 0;
+    foreach ($base_symptoms as $symptom) {
+        // Verificar si el síntoma ya existe
+        $existing = $this->symptoms_db->get_symptom_by_name($symptom['symptom_name']);
+        
+        if (!$existing) {
             $result = $this->symptoms_db->save_symptom($symptom);
             if ($result !== false) {
                 $imported++;
+                error_log('WC AI Chat: Imported symptom: ' . $symptom['symptom_name']);
             }
         }
-
-        // Limpiar cache de productos
-        delete_transient('wc_ai_chat_products_info');
-
-        return $imported;
     }
 
+    // Limpiar cache de productos
+    delete_transient('wc_ai_chat_products_info');
+    
+    error_log('WC AI Chat: Base symptoms import completed. Imported: ' . $imported);
+
+    return $imported;
+}
     public function symptoms_admin_page()
     {
         // Verificar que symptoms_db esté disponible
@@ -1260,17 +1337,17 @@ class WC_AI_Homeopathic_Chat
     }
 
     private function get_symptoms_stats()
-    {
-        global $wpdb;
-        $table_symptoms = $wpdb->prefix . 'wc_ai_chat_symptoms';
-        $table_relations = $wpdb->prefix . 'wc_ai_chat_symptom_products';
-
+{
+    if (!is_object($this->symptoms_db)) {
         return array(
-            'total_symptoms' => $wpdb->get_var("SELECT COUNT(*) FROM $table_symptoms"),
-            'total_relations' => $wpdb->get_var("SELECT COUNT(*) FROM $table_relations"),
-            'products_with_symptoms' => $wpdb->get_var("SELECT COUNT(DISTINCT product_id) FROM $table_relations")
+            'total_symptoms' => 0,
+            'total_relations' => 0,
+            'products_with_symptoms' => 0
         );
     }
+    
+    return $this->symptoms_db->get_symptom_stats();
+}
 
     private function get_learning_suggestions($status = 'pending', $limit = 50)
     {
