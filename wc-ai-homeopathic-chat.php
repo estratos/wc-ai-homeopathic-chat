@@ -898,6 +898,12 @@ class WC_AI_Homeopathic_Chat
     public function symptoms_admin_page()
     {
         $stats = $this->get_symptoms_stats();
+
+         // DEBUG: Mostrar información de síntomas
+    echo '<div class="card" style="background: #fff3cd; border-color: #ffeaa7;">';
+    echo '<h2>🔧 Debug Information</h2>';
+    $this->debug_symptoms();
+    echo '</div>';
     ?>
         <div class="wrap">
             <h1>Gestión de Síntomas y Productos Homeopáticos</h1>
@@ -1102,6 +1108,35 @@ class WC_AI_Homeopathic_Chat
         echo '</div>';
     }
 
+    private function debug_symptoms()
+    {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'wc_ai_chat_symptoms';
+
+        echo "<h3>Debug - Síntomas en la base de datos:</h3>";
+
+        $symptoms = $wpdb->get_results("SELECT * FROM $table_name ORDER BY symptom_name");
+
+        if (empty($symptoms)) {
+            echo "<p style='color: red;'>❌ No hay síntomas en la base de datos</p>";
+            return;
+        }
+
+        echo "<p style='color: green;'>✅ Se encontraron " . count($symptoms) . " síntomas:</p>";
+        echo "<table border='1' style='border-collapse: collapse; width: 100%;'>";
+        echo "<tr><th>ID</th><th>Nombre</th><th>Categoría</th><th>Severidad</th><th>Sinónimos</th></tr>";
+
+        foreach ($symptoms as $symptom) {
+            echo "<tr>";
+            echo "<td>{$symptom->symptom_id}</td>";
+            echo "<td>{$symptom->symptom_name}</td>";
+            echo "<td>{$symptom->category}</td>";
+            echo "<td>{$symptom->severity}</td>";
+            echo "<td>{$symptom->synonyms}</td>";
+            echo "</tr>";
+        }
+        echo "</table>";
+    }
     public function learning_admin_page()
     {
         $suggestions = $this->get_learning_suggestions();
