@@ -3,7 +3,7 @@
  * Plugin Name: WC AI Homeopathic Chat
  * Plugin URI: https://github.com/estratos/wc-ai-homeopathic-chat
  * Description: Chatbot flotante para recomendaciones homeopáticas con WooCommerce y sistema de aprendizaje automático.
- * Version: 2.1.0
+ * Version: 2.1.1
  * Author: Julio Rodríguez
  * Author URI: https://github.com/estratos
  * License: GPL v2 or later
@@ -1006,6 +1006,8 @@ class WC_AI_Homeopathic_Chat {
     }
     
     // Resto de las funciones existentes (register_settings, add_admin_menu, options_page, etc.)
+
+
     public function register_settings() {
         register_setting('wc_ai_homeopathic_chat_settings', 'wc_ai_homeopathic_chat_api_key');
         register_setting('wc_ai_homeopathic_chat_settings', 'wc_ai_homeopathic_chat_api_url');
@@ -1030,9 +1032,296 @@ class WC_AI_Homeopathic_Chat {
     }
     
     public function options_page() {
-        // ... (código existente de la página de opciones)
-        // Mantener el mismo código de la página de configuración que ya tenías
+    ?>
+    <div class="wrap">
+        <h1><?php esc_html_e('Configuración del Chat Homeopático', 'wc-ai-homeopathic-chat'); ?></h1>
+        
+        <form method="post" action="options.php">
+            <?php settings_fields('wc_ai_homeopathic_chat_settings'); ?>
+            
+            <div class="wc-ai-chat-settings-grid">
+                <!-- Columna 1: Configuración API -->
+                <div class="wc-ai-settings-column">
+                    <div class="card">
+                        <h2><?php esc_html_e('Configuración de API', 'wc-ai-homeopathic-chat'); ?></h2>
+                        
+                        <table class="form-table">
+                            <tr>
+                                <th scope="row">
+                                    <label for="wc_ai_homeopathic_chat_api_key">
+                                        <?php esc_html_e('DeepSeek API Key', 'wc-ai-homeopathic-chat'); ?>
+                                    </label>
+                                </th>
+                                <td>
+                                    <input type="password" 
+                                           id="wc_ai_homeopathic_chat_api_key"
+                                           name="wc_ai_homeopathic_chat_api_key" 
+                                           value="<?php echo esc_attr($this->settings['api_key']); ?>" 
+                                           class="regular-text" />
+                                    <p class="description">
+                                        <?php esc_html_e('Clave de API para DeepSeek', 'wc-ai-homeopathic-chat'); ?>
+                                    </p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">
+                                    <label for="wc_ai_homeopathic_chat_api_url">
+                                        <?php esc_html_e('URL de API', 'wc-ai-homeopathic-chat'); ?>
+                                    </label>
+                                </th>
+                                <td>
+                                    <input type="url" 
+                                           id="wc_ai_homeopathic_chat_api_url"
+                                           name="wc_ai_homeopathic_chat_api_url" 
+                                           value="<?php echo esc_attr($this->settings['api_url']); ?>" 
+                                           class="regular-text" />
+                                    <p class="description">
+                                        <?php esc_html_e('URL del endpoint de la API de DeepSeek', 'wc-ai-homeopathic-chat'); ?>
+                                    </p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">
+                                    <?php esc_html_e('Habilitar Caché', 'wc-ai-homeopathic-chat'); ?>
+                                </th>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" 
+                                               name="wc_ai_homeopathic_chat_cache_enable" 
+                                               value="1" 
+                                               <?php checked($this->settings['cache_enable'], true); ?> />
+                                        <?php esc_html_e('Usar caché para mejor rendimiento', 'wc-ai-homeopathic-chat'); ?>
+                                    </label>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Columna 2: Apariencia -->
+                <div class="wc-ai-settings-column">
+                    <div class="card">
+                        <h2><?php esc_html_e('Apariencia', 'wc-ai-homeopathic-chat'); ?></h2>
+                        
+                        <table class="form-table">
+                            <tr>
+                                <th scope="row">
+                                    <?php esc_html_e('Posición del Chat', 'wc-ai-homeopathic-chat'); ?>
+                                </th>
+                                <td>
+                                    <select name="wc_ai_homeopathic_chat_position">
+                                        <option value="right" <?php selected($this->settings['chat_position'], 'right'); ?>>
+                                            <?php esc_html_e('Derecha', 'wc-ai-homeopathic-chat'); ?>
+                                        </option>
+                                        <option value="left" <?php selected($this->settings['chat_position'], 'left'); ?>>
+                                            <?php esc_html_e('Izquierda', 'wc-ai-homeopathic-chat'); ?>
+                                        </option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">
+                                    <?php esc_html_e('Chat Flotante', 'wc-ai-homeopathic-chat'); ?>
+                                </th>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" 
+                                               name="wc_ai_homeopathic_chat_floating" 
+                                               value="1" 
+                                               <?php checked($this->settings['enable_floating'], true); ?> />
+                                        <?php esc_html_e('Mostrar chat flotante', 'wc-ai-homeopathic-chat'); ?>
+                                    </label>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">
+                                    <?php esc_html_e('Mostrar en Productos', 'wc-ai-homeopathic-chat'); ?>
+                                </th>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" 
+                                               name="wc_ai_homeopathic_chat_products" 
+                                               value="1" 
+                                               <?php checked($this->settings['show_on_products'], true); ?> />
+                                        <?php esc_html_e('Mostrar en páginas de producto', 'wc-ai-homeopathic-chat'); ?>
+                                    </label>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">
+                                    <?php esc_html_e('Mostrar en Páginas', 'wc-ai-homeopathic-chat'); ?>
+                                </th>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" 
+                                               name="wc_ai_homeopathic_chat_pages" 
+                                               value="1" 
+                                               <?php checked($this->settings['show_on_pages'], true); ?> />
+                                        <?php esc_html_e('Mostrar en páginas y entradas', 'wc-ai-homeopathic-chat'); ?>
+                                    </label>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Columna 3: WhatsApp -->
+                <div class="wc-ai-settings-column">
+                    <div class="card">
+                        <h2><?php esc_html_e('Configuración de WhatsApp', 'wc-ai-homeopathic-chat'); ?></h2>
+                        
+                        <table class="form-table">
+                            <tr>
+                                <th scope="row">
+                                    <label for="wc_ai_homeopathic_chat_whatsapp">
+                                        <?php esc_html_e('Número de WhatsApp', 'wc-ai-homeopathic-chat'); ?>
+                                    </label>
+                                </th>
+                                <td>
+                                    <input type="text" 
+                                           id="wc_ai_homeopathic_chat_whatsapp"
+                                           name="wc_ai_homeopathic_chat_whatsapp" 
+                                           value="<?php echo esc_attr($this->settings['whatsapp_number']); ?>" 
+                                           class="regular-text" 
+                                           placeholder="+521234567890" />
+                                    <p class="description">
+                                        <?php esc_html_e('Número con código de país (ej: +521234567890)', 'wc-ai-homeopathic-chat'); ?>
+                                    </p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">
+                                    <label for="wc_ai_homeopathic_chat_whatsapp_message">
+                                        <?php esc_html_e('Mensaje Predeterminado', 'wc-ai-homeopathic-chat'); ?>
+                                    </label>
+                                </th>
+                                <td>
+                                    <textarea id="wc_ai_homeopathic_chat_whatsapp_message"
+                                              name="wc_ai_homeopathic_chat_whatsapp_message"
+                                              class="large-text"
+                                              rows="3"><?php echo esc_textarea($this->settings['whatsapp_message']); ?></textarea>
+                                    <p class="description">
+                                        <?php esc_html_e('Mensaje inicial para WhatsApp', 'wc-ai-homeopathic-chat'); ?>
+                                    </p>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN: PROMPT DEL SISTEMA -->
+            <div class="card" style="margin-top: 20px;">
+                <h2><?php esc_html_e('Configuración del Prompt del Sistema', 'wc-ai-homeopathic-chat'); ?></h2>
+                
+                <table class="form-table">
+                    <tr>
+                        <th scope="row">
+                            <label for="wc_ai_homeopathic_chat_system_prompt">
+                                <?php esc_html_e('Prompt del Sistema', 'wc-ai-homeopathic-chat'); ?>
+                            </label>
+                        </th>
+                        <td>
+                            <textarea id="wc_ai_homeopathic_chat_system_prompt"
+                                      name="wc_ai_homeopathic_chat_system_prompt"
+                                      class="large-text"
+                                      rows="12"
+                                      style="font-family: monospace; font-size: 13px;"
+                                      placeholder="<?php echo esc_attr($this->get_default_system_prompt()); ?>"><?php echo esc_textarea($this->settings['system_prompt']); ?></textarea>
+                            <p class="description">
+                                <?php esc_html_e('Este prompt define la personalidad y comportamiento del asistente.', 'wc-ai-homeopathic-chat'); ?>
+                            </p>
+                            <div style="margin-top: 10px;">
+                                <button type="button" id="reset-prompt" class="button button-secondary">
+                                    <?php esc_html_e('Restablecer Prompt por Defecto', 'wc-ai-homeopathic-chat'); ?>
+                                </button>
+                                <button type="button" id="preview-prompt" class="button button-secondary">
+                                    <?php esc_html_e('Vista Previa del Prompt Actual', 'wc-ai-homeopathic-chat'); ?>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            
+            <?php submit_button(__('Guardar Cambios', 'wc-ai-homeopathic-chat')); ?>
+        </form>
+    </div>
+    
+    <style>
+    .wc-ai-chat-settings-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        gap: 20px;
+        margin: 20px 0;
     }
+    .wc-ai-settings-column .card {
+        background: #fff;
+        border: 1px solid #ccd0d4;
+        border-radius: 4px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 1px 1px rgba(0,0,0,.04);
+    }
+    .wc-ai-settings-column h2 {
+        margin-top: 0;
+        padding-top: 0;
+        border-bottom: 1px solid #ccd0d4;
+        padding-bottom: 10px;
+    }
+    .card {
+        background: #fff;
+        border: 1px solid #ccd0d4;
+        border-radius: 4px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 1px 1px rgba(0,0,0,.04);
+    }
+    .card h2 {
+        margin-top: 0;
+        border-bottom: 1px solid #ccd0d4;
+        padding-bottom: 10px;
+    }
+    </style>
+
+    <script>
+    jQuery(document).ready(function($) {
+        // Restablecer prompt por defecto
+        $('#reset-prompt').on('click', function() {
+            if (confirm('¿Estás seguro de que quieres restablecer el prompt por defecto? Se perderán los cambios actuales.')) {
+                var defaultPrompt = `<?php echo esc_js($this->get_default_system_prompt()); ?>`;
+                $('#wc_ai_homeopathic_chat_system_prompt').val(defaultPrompt);
+            }
+        });
+
+        // Vista previa del prompt
+        $('#preview-prompt').on('click', function() {
+            var currentPrompt = $('#wc_ai_homeopathic_chat_system_prompt').val();
+            if (!currentPrompt.trim()) {
+                currentPrompt = `<?php echo esc_js($this->get_default_system_prompt()); ?>`;
+            }
+            
+            var previewWindow = window.open('', 'Prompt Preview', 'width=800,height=600,scrollbars=yes');
+            previewWindow.document.write(`
+                <html>
+                <head><title>Vista Previa del Prompt</title></head>
+                <body style="font-family: monospace; white-space: pre-wrap; padding: 20px; background: #f6f7f7;">
+                    <h2>Vista Previa del Prompt del Sistema</h2>
+                    <div style="background: white; padding: 20px; border: 1px solid #ccd0d4; border-radius: 4px;">
+                        ${currentPrompt.replace(/\n/g, '<br>')}
+                    </div>
+                    <p><strong>Longitud:</strong> ${currentPrompt.length} caracteres</p>
+                    <button onclick="window.print()">Imprimir</button>
+                    <button onclick="window.close()">Cerrar</button>
+                </body>
+                </html>
+            `);
+            previewWindow.document.close();
+        });
+    });
+    </script>
+    <?php
+}
     
     private function get_default_system_prompt() {
         return "Eres un asesor homeópata de la tienda en linea con amplia experiencia en medicina natural. Tu objetivo es ayudar a los usuarios de la tienda en línea a encontrar soluciones homeopáticas adecuadas para sus síntomas.
