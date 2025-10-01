@@ -3,7 +3,7 @@
  * Plugin Name: WC AI Homeopathic Chat
  * Plugin URI: https://github.com/estratos/wc-ai-homeopathic-chat
  * Description: Chatbot flotante para recomendaciones homeopáticas con WooCommerce y sistema de aprendizaje automático.
- * Version: 2.1.4
+ * Version: 2.1.5
  * Author: Julio Rodríguez
  * Author URI: https://github.com/estratos
  * License: GPL v2 or later
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('WC_AI_HOMEOPATHIC_CHAT_VERSION', '2.1.4');
+define('WC_AI_HOMEOPATHIC_CHAT_VERSION', '2.1.5');
 define('WC_AI_HOMEOPATHIC_CHAT_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('WC_AI_HOMEOPATHIC_CHAT_PLUGIN_PATH', plugin_dir_path(__FILE__));
 define('WC_AI_HOMEOPATHIC_CHAT_CACHE_TIME', 30 * DAY_IN_SECONDS);
@@ -146,12 +146,42 @@ class WC_AI_Homeopathic_Chat
         add_action('wp_ajax_wc_ai_chat_import_base_symptoms', array($this, 'ajax_import_base_symptoms'));
         add_action('wp_ajax_wc_ai_chat_process_suggestion', array($this, 'ajax_process_suggestion'));
 
-        // Admin
+        // Admin - UN SOLO HOOK para admin_menu
+        add_action('admin_menu', array($this, 'add_admin_menus'));
         add_action('admin_init', array($this, 'register_settings'));
-        add_action('admin_menu', array($this, 'add_admin_menu'));
-        add_action('admin_menu', array($this, 'add_symptoms_admin_page'));
-        add_action('admin_menu', array($this, 'add_learning_admin_page'));
         add_filter('plugin_action_links_' . plugin_basename(__FILE__), array($this, 'add_plugin_action_links'));
+    }
+
+    // NUEVO MÉTODO: Unificar todos los menús administrativos
+    public function add_admin_menus()
+    {
+        // Menú principal en Ajustes
+        add_options_page(
+            'WC AI Homeopathic Chat',
+            'Homeopathic Chat',
+            'manage_options',
+            'wc-ai-homeopathic-chat',
+            array($this, 'options_page')
+        );
+
+        // Submenús
+        add_submenu_page(
+            'options-general.php',
+            'Gestión de Síntomas',
+            'Síntomas Homeopáticos',
+            'manage_options',
+            'wc-ai-chat-symptoms',
+            array($this, 'symptoms_admin_page')
+        );
+
+        add_submenu_page(
+            'options-general.php',
+            'Aprendizaje del Chat',
+            'Aprendizaje AI',
+            'manage_options',
+            'wc-ai-chat-learning',
+            array($this, 'learning_admin_page')
+        );
     }
 
     public function create_symptoms_tables()
@@ -163,7 +193,6 @@ class WC_AI_Homeopathic_Chat
         $table_symptoms = $wpdb->prefix . 'wc_ai_chat_symptoms';
         $table_symptom_products = $wpdb->prefix . 'wc_ai_chat_symptom_products';
 
-        // REMOVER FOREIGN KEY temporalmente para evitar errores
         $sql_symptoms = "CREATE TABLE $table_symptoms (
             symptom_id BIGINT(20) NOT NULL AUTO_INCREMENT,
             symptom_name VARCHAR(255) NOT NULL,
@@ -202,12 +231,10 @@ class WC_AI_Homeopathic_Chat
         // Verificar errores
         if (!empty($wpdb->last_error)) {
             error_log('WC AI Chat - Error creando tablas: ' . $wpdb->last_error);
-            // Mostrar error en admin
             add_action('admin_notices', function() use ($wpdb) {
                 echo '<div class="error"><p>WC AI Chat Error en base de datos: ' . esc_html($wpdb->last_error) . '</p></div>';
             });
         } else {
-            // Log éxito
             error_log('WC AI Chat - Tablas creadas correctamente');
         }
     }
@@ -245,7 +272,9 @@ class WC_AI_Homeopathic_Chat
     {
         $settings_link = '<a href="' . admin_url('options-general.php?page=wc-ai-homeopathic-chat') . '">' .
             __('Configuración', 'wc-ai-homeopathic-chat') . '</a>';
-        array_unshift($links, $settings_link);
+        $symptoms_link = '<a href="' . admin_url('options-general.php?page=wc-ai-chat-symptoms') . '">' .
+            __('Síntomas', 'wc-ai-homeopathic-chat') . '</a>';
+        array_unshift($links, $symptoms_link, $settings_link);
         return $links;
     }
 
@@ -932,31 +961,6 @@ class WC_AI_Homeopathic_Chat
         return $imported;
     }
 
-    // Admin pages
-    public function add_symptoms_admin_page()
-    {
-        add_submenu_page(
-            'options-general.php',
-            'Gestión de Síntomas',
-            'Síntomas Homeopáticos',
-            'manage_options',
-            'wc-ai-chat-symptoms',
-            array($this, 'symptoms_admin_page')
-        );
-    }
-
-    public function add_learning_admin_page()
-    {
-        add_submenu_page(
-            'options-general.php',
-            'Aprendizaje del Chat',
-            'Aprendizaje AI',
-            'manage_options',
-            'wc-ai-chat-learning',
-            array($this, 'learning_admin_page')
-        );
-    }
-
     public function symptoms_admin_page()
     {
         $stats = $this->get_symptoms_stats();
@@ -1077,7 +1081,6 @@ class WC_AI_Homeopathic_Chat
                         .done(function(response) {
                             if (response.success) {
                                 $results.html('<div class="success-message">' + response.data.message + '</div>');
-                                // Actualizar estadísticas después de 1 segundo
                                 setTimeout(function() {
                                     location.reload();
                                 }, 1500);
@@ -1384,17 +1387,6 @@ class WC_AI_Homeopathic_Chat
         register_setting('wc_ai_homeopathic_chat_settings', 'wc_ai_homeopathic_chat_products');
         register_setting('wc_ai_homeopathic_chat_settings', 'wc_ai_homeopathic_chat_pages');
         register_setting('wc_ai_homeopathic_chat_settings', 'wc_ai_homeopathic_chat_system_prompt');
-    }
-
-    public function add_admin_menu()
-    {
-        add_options_page(
-            'WC AI Homeopathic Chat',
-            'Homeopathic Chat',
-            'manage_options',
-            'wc-ai-homeopathic-chat',
-            array($this, 'options_page')
-        );
     }
 
     public function options_page()
