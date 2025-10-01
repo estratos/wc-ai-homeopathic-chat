@@ -4,7 +4,7 @@
  * Plugin Name: WC AI Homeopathic Chat
  * Plugin URI: https://github.com/estratos/wc-ai-homeopathic-chat
  * Description: Chatbot flotante para recomendaciones homeopáticas con WooCommerce y sistema de aprendizaje automático.
- * Version: 2.1.2
+ * Version: 2.1.3
  * Author: Julio Rodríguez
  * Author URI: https://github.com/estratos
  * License: GPL v2 or later
@@ -19,7 +19,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('WC_AI_HOMEOPATHIC_CHAT_VERSION', '2.1.2');
+define('WC_AI_HOMEOPATHIC_CHAT_VERSION', '2.1.3');
 define('WC_AI_HOMEOPATHIC_CHAT_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('WC_AI_HOMEOPATHIC_CHAT_PLUGIN_PATH', plugin_dir_path(__FILE__));
 define('WC_AI_HOMEOPATHIC_CHAT_CACHE_TIME', 30 * DAY_IN_SECONDS);
@@ -115,6 +115,7 @@ class WC_AI_Homeopathic_Chat
         $table_symptoms = $wpdb->prefix . 'wc_ai_chat_symptoms';
         $table_symptom_products = $wpdb->prefix . 'wc_ai_chat_symptom_products';
 
+        // Mejorar consultas SQL
         $sql_symptoms = "CREATE TABLE $table_symptoms (
             symptom_id BIGINT(20) NOT NULL AUTO_INCREMENT,
             symptom_name VARCHAR(255) NOT NULL,
@@ -142,12 +143,18 @@ class WC_AI_Homeopathic_Chat
             UNIQUE KEY symptom_product (symptom_id, product_id),
             KEY symptom_id (symptom_id),
             KEY product_id (product_id),
-            KEY relevance_score (relevance_score)
+            KEY relevance_score (relevance_score),
+            FOREIGN KEY (symptom_id) REFERENCES $table_symptoms(symptom_id) ON DELETE CASCADE
         ) $charset_collate;";
 
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($sql_symptoms);
         dbDelta($sql_symptom_products);
+
+        // Verificar errores
+        if (!empty($wpdb->last_error)) {
+            error_log('WC AI Chat - Error creando tablas: ' . $wpdb->last_error);
+        }
     }
 
     public function create_learning_tables()
@@ -899,11 +906,11 @@ class WC_AI_Homeopathic_Chat
     {
         $stats = $this->get_symptoms_stats();
 
-         // DEBUG: Mostrar información de síntomas
-    echo '<div class="card" style="background: #fff3cd; border-color: #ffeaa7;">';
-    echo '<h2>🔧 Debug Information</h2>';
-    $this->debug_symptoms();
-    echo '</div>';
+        // DEBUG: Mostrar información de síntomas
+        echo '<div class="card" style="background: #fff3cd; border-color: #ffeaa7;">';
+        echo '<h2>🔧 Debug Information</h2>';
+        $this->debug_symptoms();
+        echo '</div>';
     ?>
         <div class="wrap">
             <h1>Gestión de Síntomas y Productos Homeopáticos</h1>
