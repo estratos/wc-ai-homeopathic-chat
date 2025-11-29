@@ -1,6 +1,6 @@
 /**
  * WC AI Homeopathic Chat - Styles MEJORADO
- * Version: 2.5.1
+ * Version: 2.5.3
  */
 
 /* Container principal */
@@ -77,8 +77,9 @@
 /* Ventana del chat */
 .wc-ai-chat-window {
     position: absolute;
-    bottom: 80px;
-    width: 380px; /* Ligeramente más ancho para mejor legibilidad */
+    top: 45px;
+    bottom: 10px;
+    width: 450px; /* Ligeramente más ancho para mejor legibilidad */
     max-width: 90vw;
     background: white;
     border-radius: 12px;
@@ -87,7 +88,7 @@
     visibility: hidden;
     transform: translateY(20px);
     transition: all 0.3s ease;
-    z-index: 999;
+    z-index: 1999;
     overflow: hidden;
 }
 
@@ -120,7 +121,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 15px 20px;
+    padding: 5px 15px;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     border-radius: 12px 12px 0 0;
@@ -172,8 +173,8 @@
     padding: 8px;
     border-radius: 6px;
     transition: all 0.3s ease;
-    width: 32px;
-    height: 32px;
+    width: 20px;
+    height: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -365,7 +366,7 @@
 
 /* Contenedor de input */
 .wc-ai-chat-input-container {
-    padding: 20px;
+    padding: 15px;
     background: white;
     border-top: 1px solid #e1e5e9;
 }
@@ -607,4 +608,40 @@
     opacity: 0.6;
     font-style: italic;
     margin-left: 8px;
+}
+
+/* Efecto de escritura palabra por palabra */
+.wc-ai-message-content.typing-effect {
+    overflow: hidden;
+}
+
+.wc-ai-message-content.typing-effect span.word {
+    opacity: 0;
+    animation: wordAppear 0.3s ease forwards;
+}
+
+@keyframes wordAppear {
+    to {
+        opacity: 1;
+    }
+}
+
+/* Cursor parpadeante para efecto de escritura */
+.wc-ai-typing-cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    background: #667eea;
+    margin-left: 2px;
+    animation: blink 1s infinite;
+    vertical-align: middle;
+}
+
+@keyframes blink {
+    0%, 50% {
+        opacity: 1;
+    }
+    51%, 100% {
+        opacity: 0;
+    }
 }

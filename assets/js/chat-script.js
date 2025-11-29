@@ -190,7 +190,8 @@
                 if (response.whatsapp_fallback) {
                     this.showWhatsAppFallback(response.response, message);
                 } else {
-                    this.addBotMessage(response.response, response.from_cache);
+                    // Usar el nuevo método con efecto de escritura
+                    await this.addBotMessageWithTyping(response.response, response.from_cache);
                 }
             } catch (error) {
                 console.error('API Error:', error);
@@ -198,51 +199,180 @@
                 if (this.hasWhatsAppFallback()) {
                     this.showWhatsAppFallback(error.message, message);
                 } else {
-                    this.addBotMessage('<em style="color: #d32f2f;">' + error.message + '</em>');
+                    await this.addBotMessageWithTyping('<em style="color: #d32f2f;">' + error.message + '</em>');
                 }
             }
         }
 
-        apiRequest(message) {
-            return new Promise((resolve, reject) => {
-                if (!wc_ai_homeopathic_chat_params.api_configured) {
-                    reject(new Error('API no configurada'));
-                    return;
-                }
+        /**
+         * NUEVO MÉTODO: Añade mensaje del bot con efecto de escritura palabra por palabra
+         */
+        async addBotMessageWithTyping(message, fromCache = false) {
+            this.hideLoading();
+            
+            const time = new Date().toLocaleTimeString('es-MX', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+            
+            const cacheBadge = fromCache ? ' <small style="opacity:0.7;font-size:0.8em;">(desde caché)</small>' : '';
+            
+            // Crear elemento del mensaje
+            const messageHtml = `
+                <div class="wc-ai-chat-message bot">
+                    <div class="wc-ai-message-content typing-effect">
+                        <span class="wc-ai-typing-cursor"></span>
+                    </div>
+                    <div class="wc-ai-message-time">🕒 ${time}</div>
+                </div>
+            `;
+            
+            this.$messages.append(messageHtml);
+            const $messageContent = this.$messages.find('.wc-ai-message-content.typing-effect').last();
+            
+            // Efecto de escritura palabra por palabra
+            await this.typeWriterEffect($messageContent, message + cacheBadge);
+            
+            this.scrollToBottom();
+        }
 
-                $.ajax({
-                    url: wc_ai_homeopathic_chat_params.ajax_url,
-                    type: 'POST',
-                    dataType: 'json',
-                    timeout: 25000,
-                    data: {
-                        action: 'wc_ai_homeopathic_chat_send_message',
-                        message: message,
-                        nonce: wc_ai_homeopathic_chat_params.nonce
-                    },
-                    success: (response) => {
-                        console.log('API Response:', response);
-                        if (response.success) {
-                            resolve(response.data);
-                        } else {
-                            reject(new Error(response.data || 'Error desconocido'));
-                        }
-                    },
-                    error: (xhr, status, error) => {
-                        console.error('AJAX Error:', status, error);
-                        reject(new Error(this.getErrorMessage(status)));
+        /**
+         * Efecto de escritura palabra por palabra
+         */
+        async typeWriterEffect($element, text) {
+            return new Promise((resolve) => {
+                // Limpiar el cursor inicial
+                $element.empty();
+                
+                // Procesar el texto para mantener el formato HTML
+                const words = this.extractWordsWithFormatting(text);
+                let currentIndex = 0;
+                
+                const typeNextWord = () => {
+                    if (currentIndex >= words.length) {
+                        // Escribir completo, eliminar clase de efecto
+                        $element.removeClass('typing-effect');
+                        resolve();
+                        return;
                     }
-                });
+                    
+                    const word = words[currentIndex];
+                    
+                    if (word.type === 'tag') {
+                        // Es una etiqueta HTML, añadir inmediatamente
+                        $element.append(word.content);
+                    } else {
+                        // Es texto normal, crear span para la palabra
+                        const $wordSpan = $('<span class="word"></span>')
+                            .html(word.content + (word.space ? ' ' : ''));
+                        
+                        $element.append($wordSpan);
+                        
+                        // Animación de aparición
+                        setTimeout(() => {
+                            $wordSpan.css('opacity', 1);
+                        }, 10);
+                    }
+                    
+                    currentIndex++;
+                    
+                    // Scroll automático mientras se escribe
+                    this.scrollToBottom();
+                    
+                    // Velocidad de escritura (más rápido para tags HTML, normal para texto)
+                    const delay = word.type === 'tag' ? 50 : this.calculateTypingDelay(word.content);
+                    
+                    setTimeout(typeNextWord, delay);
+                };
+                
+                // Iniciar el efecto
+                typeNextWord();
             });
         }
 
-        getErrorMessage(status) {
-            const messages = {
-                'timeout': 'El servicio está tardando más de lo esperado.',
-                'error': 'Error de conexión con el servicio.',
-                'parsererror': 'Error procesando la respuesta.'
-            };
-            return messages[status] || wc_ai_homeopathic_chat_params.error_text;
+        /**
+         * Extrae palabras manteniendo el formato HTML
+         */
+        extractWordsWithFormatting(text) {
+            const result = [];
+            let currentText = '';
+            let inTag = false;
+            let tagContent = '';
+            
+            for (let i = 0; i < text.length; i++) {
+                const char = text[i];
+                
+                if (char === '<') {
+                    // Comienza una etiqueta HTML
+                    if (currentText.trim()) {
+                        // Procesar el texto acumulado antes de la etiqueta
+                        const words = currentText.split(/(\s+)/);
+                        words.forEach(word => {
+                            if (word.trim()) {
+                                result.push({
+                                    type: 'text',
+                                    content: word,
+                                    space: /\s$/.test(word)
+                                });
+                            } else if (word) {
+                                // Espacios
+                                result.push({
+                                    type: 'space',
+                                    content: word
+                                });
+                            }
+                        });
+                        currentText = '';
+                    }
+                    inTag = true;
+                    tagContent = char;
+                } else if (char === '>' && inTag) {
+                    // Termina una etiqueta HTML
+                    tagContent += char;
+                    result.push({
+                        type: 'tag',
+                        content: tagContent
+                    });
+                    inTag = false;
+                    tagContent = '';
+                } else if (inTag) {
+                    // Dentro de una etiqueta HTML
+                    tagContent += char;
+                } else {
+                    // Texto normal
+                    currentText += char;
+                }
+            }
+            
+            // Procesar cualquier texto restante después de las etiquetas
+            if (currentText.trim()) {
+                const words = currentText.split(/(\s+)/);
+                words.forEach(word => {
+                    if (word.trim()) {
+                        result.push({
+                            type: 'text',
+                            content: word,
+                            space: /\s$/.test(word)
+                        });
+                    } else if (word) {
+                        result.push({
+                            type: 'space',
+                            content: word
+                        });
+                    }
+                });
+            }
+            
+            return result;
+        }
+
+        /**
+         * Calcula el delay de escritura basado en la longitud de la palabra
+         */
+        calculateTypingDelay(word) {
+            const baseDelay = 30; // ms por palabra
+            const lengthFactor = Math.min(word.length * 2, 100); // máximo 100ms adicionales
+            return baseDelay + lengthFactor;
         }
 
         addUserMessage(message) {
@@ -262,6 +392,7 @@
             this.scrollToBottom();
         }
 
+        // Mantener el método original para compatibilidad
         addBotMessage(message, fromCache = false) {
             this.hideLoading();
             
@@ -444,6 +575,48 @@
                 "'": '&#039;'
             };
             return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        apiRequest(message) {
+            return new Promise((resolve, reject) => {
+                if (!wc_ai_homeopathic_chat_params.api_configured) {
+                    reject(new Error('API no configurada'));
+                    return;
+                }
+
+                $.ajax({
+                    url: wc_ai_homeopathic_chat_params.ajax_url,
+                    type: 'POST',
+                    dataType: 'json',
+                    timeout: 25000,
+                    data: {
+                        action: 'wc_ai_homeopathic_chat_send_message',
+                        message: message,
+                        nonce: wc_ai_homeopathic_chat_params.nonce
+                    },
+                    success: (response) => {
+                        console.log('API Response:', response);
+                        if (response.success) {
+                            resolve(response.data);
+                        } else {
+                            reject(new Error(response.data || 'Error desconocido'));
+                        }
+                    },
+                    error: (xhr, status, error) => {
+                        console.error('AJAX Error:', status, error);
+                        reject(new Error(this.getErrorMessage(status)));
+                    }
+                });
+            });
+        }
+
+        getErrorMessage(status) {
+            const messages = {
+                'timeout': 'El servicio está tardando más de lo esperado.',
+                'error': 'Error de conexión con el servicio.',
+                'parsererror': 'Error procesando la respuesta.'
+            };
+            return messages[status] || wc_ai_homeopathic_chat_params.error_text;
         }
     }
 
