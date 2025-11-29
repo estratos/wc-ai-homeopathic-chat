@@ -77,7 +77,6 @@
 /* Ventana del chat */
 .wc-ai-chat-window {
     position: absolute;
-    top: 45px;
     bottom: 10px;
     width: 450px; /* Ligeramente más ancho para mejor legibilidad */
     max-width: 90vw;
