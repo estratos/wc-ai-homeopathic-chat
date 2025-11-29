@@ -3,7 +3,7 @@
  * Plugin Name: WC AI Homeopathic Chat
  * Plugin URI: https://github.com/estratos/wc-ai-homeopathic-chat
  * Description: Chatbot flotante para recomendaciones homeopáticas con WooCommerce.
- * Version: 2.5.0
+ * Version: 2.5.1
  * Author: Julio Rodríguez
  * Author URI: https://github.com/estratos
  * License: GPL v2 or later
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('WC_AI_HOMEOPATHIC_CHAT_VERSION', '2.5.0');
+define('WC_AI_HOMEOPATHIC_CHAT_VERSION', '2.5.1');
 define('WC_AI_HOMEOPATHIC_CHAT_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('WC_AI_HOMEOPATHIC_CHAT_PLUGIN_PATH', plugin_dir_path(__FILE__));
 define('WC_AI_HOMEOPATHIC_CHAT_CACHE_TIME', 30 * DAY_IN_SECONDS);
@@ -88,8 +88,162 @@ class WC_AI_Homeopathic_Chat {
         add_filter('plugin_action_links_' . plugin_basename(__FILE__), array($this, 'add_plugin_action_links'));
     }
     
+    /**
+     * AJAX handler mejorado - VERSIÓN 2.5.1
+     */
+    public function ajax_send_message() {
+        try {
+            $this->validate_ajax_request();
+            
+            $message = $this->sanitize_message();
+            $cache_key = 'wc_ai_chat_' . md5($message);
+            
+            // Verificar caché
+            $cached_response = $this->get_cached_response($cache_key);
+            if ($cached_response !== false) {
+                wp_send_json_success(array(
+                    'response' => $cached_response,
+                    'from_cache' => true
+                ));
+            }
+            
+            // Analizar síntomas y detectar categorías
+            $analysis = $this->analizar_sintomas_mejorado($message);
+            
+            // Detectar productos mencionados en la consulta (SISTEMA MEJORADO)
+            $productos_mencionados = $this->detectar_productos_en_consulta($message);
+            
+            // CONFIGURACIÓN MEJORADA: Si hay productos mencionados con alta confianza, mostrar solo esos
+            $mostrar_solo_productos_mencionados = $this->debe_mostrar_solo_productos_mencionados($productos_mencionados);
+            
+            $info_productos_mencionados = $this->get_info_productos_mencionados($productos_mencionados);
+            
+            // Obtener productos relevantes basados en categorías (solo si no hay productos mencionados específicos)
+            $relevant_products = "";
+            if (!$mostrar_solo_productos_mencionados) {
+                $relevant_products = $this->get_relevant_products_by_categories($analysis['categorias_detectadas']);
+                
+                // Si no se detectaron categorías específicas, usar remedios polivalentes
+                if (empty($analysis['categorias_detectadas'])) {
+                    $relevant_products = $this->get_polivalent_products_info();
+                }
+            }
+            
+            // Construir prompt con información de productos mencionados
+            $prompt = $this->build_prompt_mejorado($message, $analysis, $relevant_products, $info_productos_mencionados, $productos_mencionados, $mostrar_solo_productos_mencionados);
+            $response = $this->call_deepseek_api($prompt);
+            
+            if (is_wp_error($response)) {
+                if (!empty($this->settings['whatsapp_number'])) {
+                    wp_send_json_success(array(
+                        'response' => $this->get_whatsapp_fallback_message($message),
+                        'whatsapp_fallback' => true
+                    ));
+                } else {
+                    throw new Exception($response->get_error_message());
+                }
+            }
+            
+            $sanitized_response = $this->sanitize_api_response($response);
+            $this->cache_response($cache_key, $sanitized_response);
+            
+            wp_send_json_success(array(
+                'response' => $sanitized_response,
+                'from_cache' => false,
+                'analysis' => $analysis,
+                'productos_mencionados' => $productos_mencionados,
+                'mostrar_solo_productos_mencionados' => $mostrar_solo_productos_mencionados
+            ));
+            
+        } catch (Exception $e) {
+            wp_send_json_error($e->getMessage());
+        }
+    }
+    
+    /**
+     * Determina si debe mostrar solo los productos mencionados
+     */
+    private function debe_mostrar_solo_productos_mencionados($productos_mencionados) {
+        if (empty($productos_mencionados)) {
+            return false;
+        }
+        
+        // Si hay al menos un producto con alta confianza (>0.8), mostrar solo esos
+        foreach ($productos_mencionados as $producto) {
+            if ($producto['confianza'] >= 0.8) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Build prompt mejorado - VERSIÓN 2.5.1
+     */
+    private function build_prompt_mejorado($message, $analysis, $relevant_products, $info_productos_mencionados = "", $productos_mencionados = array(), $mostrar_solo_productos_mencionados = false) {
+        $categorias_text = !empty($analysis['categorias_detectadas']) ? 
+            "CATEGORÍAS DETECTADAS: " . implode(', ', $analysis['categorias_detectadas']) : 
+            "No se detectaron categorías específicas.";
+        
+        $padecimientos_text = !empty($analysis['padecimientos_encontrados']) ? 
+            "PADECIMIENTOS IDENTIFICADOS: " . implode(', ', array_column(array_slice($analysis['padecimientos_encontrados'], 0, 8), 'padecimiento')) : 
+            "No se identificaron padecimientos específicos.";
+        
+        $hay_productos_mencionados = !empty($productos_mencionados);
+        $instrucciones_especiales = "";
+        
+        if ($hay_productos_mencionados) {
+            $nombres_productos = array();
+            foreach ($productos_mencionados as $item) {
+                $nombres_productos[] = $item['product']->get_name();
+            }
+            
+            $instrucciones_especiales = "\n\n🚨 INFORMACIÓN ESPECIAL - PRODUCTOS MENCIONADOS:\nEl usuario ha mencionado o mostrado interés en estos productos específicos: " . implode(', ', $nombres_productos);
+            
+            if ($mostrar_solo_productos_mencionados) {
+                $instrucciones_especiales .= "\n\n🎯 INSTRUCCIÓN CRÍTICA: El usuario pregunta específicamente por estos productos. DEBES:\n" .
+                    "1. PROPORCIONAR INFORMACIÓN DETALLADA SOLO de los productos mencionados\n" .
+                    "2. INCLUIR: precio, SKU, disponibilidad, descripción breve\n" .
+                    "3. NO RECOMENDAR otros productos adicionales\n" .
+                    "4. Si el producto no está disponible, ser honesto y sugerir consultar alternativas con un profesional";
+            } else {
+                $instrucciones_especiales .= "\n\n💡 INSTRUCCIONES ADICIONALES:\n" .
+                    "1. Proporciona información sobre los productos mencionados\n" .
+                    "2. También puedes sugerir productos complementarios si son relevantes\n" .
+                    "3. Relaciona los productos mencionados con los síntomas descritos";
+            }
+        }
+        
+        $prompt = "Eres un homeópata experto. Analiza la consulta y proporciona información útil sobre productos homeopáticos.";
+
+        if ($hay_productos_mencionados) {
+            $prompt .= "\n\n{$info_productos_mencionados}";
+        }
+
+        $prompt .= "\n\nCONSULTA DEL PACIENTE:\n\"{$message}\"\n\nANÁLISIS DE SÍNTOMAS:\n{$analysis['resumen_analisis']}\n{$categorias_text}\n{$padecimientos_text}";
+        
+        // Solo incluir productos recomendados si no estamos mostrando solo productos mencionados
+        if (!$mostrar_solo_productos_mencionados && !empty($relevant_products)) {
+            $prompt .= "\n\nINVENTARIO DE PRODUCTOS RECOMENDADOS:\n{$relevant_products}";
+        }
+        
+        $prompt .= "{$instrucciones_especiales}\n\nINSTRUCCIONES GENERALES:\n" .
+            "1. Proporciona información CLARA y DIRECTA\n" .
+            "2. Usa formato legible con saltos de línea\n" .
+            "3. Incluye información específica de productos (precio, SKU, disponibilidad)\n" .
+            "4. Sé empático pero profesional\n" .
+            "5. Siempre aclara: \"Consulta con un profesional de la salud para diagnóstico preciso\"\n" .
+            "6. " . ($mostrar_solo_productos_mencionados ? 
+                "RESPONDE EXCLUSIVAMENTE sobre los productos que el usuario mencionó" : 
+                "Si el usuario pregunta por productos específicos, proporciona información detallada de esos productos") . 
+            "\n\nResponde en español de manera natural y práctica. Usa formato claro y fácil de leer.";
+
+        return $prompt;
+    }
+    
     // =========================================================================
-    // SISTEMA MEJORADO DE DETECCIÓN DE PRODUCTOS
+    // SISTEMA MEJORADO DE DETECCIÓN DE PRODUCTOS (se mantiene igual)
     // =========================================================================
     
     /**
@@ -495,96 +649,39 @@ class WC_AI_Homeopathic_Chat {
         return $products;
     }
     
-    // =========================================================================
-    // MÉTODOS PRINCIPALES DEL PLUGIN (actualizados)
-    // =========================================================================
-    
-    public function ajax_send_message() {
-        try {
-            $this->validate_ajax_request();
-            
-            $message = $this->sanitize_message();
-            $cache_key = 'wc_ai_chat_' . md5($message);
-            
-            // Verificar caché
-            $cached_response = $this->get_cached_response($cache_key);
-            if ($cached_response !== false) {
-                wp_send_json_success(array(
-                    'response' => $cached_response,
-                    'from_cache' => true
-                ));
-            }
-            
-            // Analizar síntomas y detectar categorías
-            $analysis = $this->analizar_sintomas_mejorado($message);
-            
-            // Detectar productos mencionados en la consulta (SISTEMA MEJORADO)
-            $productos_mencionados = $this->detectar_productos_en_consulta($message);
-            $info_productos_mencionados = $this->get_info_productos_mencionados($productos_mencionados);
-            
-            // Obtener productos relevantes basados en categorías
-            $relevant_products = $this->get_relevant_products_by_categories($analysis['categorias_detectadas']);
-            
-            // Si no se detectaron categorías específicas, usar remedios polivalentes
-            if (empty($analysis['categorias_detectadas'])) {
-                $relevant_products = $this->get_polivalent_products();
-            }
-            
-            // Construir prompt con información de productos mencionados
-            $prompt = $this->build_prompt($message, $analysis, $relevant_products, $info_productos_mencionados, $productos_mencionados);
-            $response = $this->call_deepseek_api($prompt);
-            
-            if (is_wp_error($response)) {
-                if (!empty($this->settings['whatsapp_number'])) {
-                    wp_send_json_success(array(
-                        'response' => $this->get_whatsapp_fallback_message($message),
-                        'whatsapp_fallback' => true
-                    ));
-                } else {
-                    throw new Exception($response->get_error_message());
-                }
-            }
-            
-            $sanitized_response = $this->sanitize_api_response($response);
-            $this->cache_response($cache_key, $sanitized_response);
-            
-            wp_send_json_success(array(
-                'response' => $sanitized_response,
-                'from_cache' => false,
-                'analysis' => $analysis,
-                'productos_mencionados' => $productos_mencionados
-            ));
-            
-        } catch (Exception $e) {
-            wp_send_json_error($e->getMessage());
-        }
+    /**
+     * Obtiene información de productos polivalentes formateada
+     */
+    private function get_polivalent_products_info() {
+        $products = $this->get_polivalent_products();
+        return $this->format_products_info($products);
     }
     
     /**
-     * Obtiene información detallada de productos mencionados
+     * Obtiene información detallada de productos mencionados - MEJORADA
      */
     private function get_info_productos_mencionados($productos_mencionados) {
         if (empty($productos_mencionados)) {
             return "";
         }
         
-        $info = "📦 PRODUCTOS MENCIONADOS EN LA CONSULTA:\n\n";
+        $info = "🎯 PRODUCTOS ESPECÍFICOS MENCIONADOS EN LA CONSULTA:\n\n";
         
         foreach ($productos_mencionados as $item) {
             $product = $item['product'];
             $info .= $this->format_detailed_product_info($product, $item) . "\n---\n";
         }
         
-        $info .= "\n💡 El usuario ha mostrado interés en estos productos específicos.";
+        $info .= "\n💡 INFORMACIÓN IMPORTANTE:\n- Precios en " . get_woocommerce_currency_symbol() . "\n- Disponibilidad sujeta a stock\n- SKU único para cada producto";
         return $info;
     }
     
     /**
-     * Formatea información detallada del producto
+     * Formatea información detallada del producto - MEJORADA
      */
     private function format_detailed_product_info($product, $detection_info = null) {
         $title = $product->get_name();
-        $sku = $product->get_sku() ?: 'N/A';
+        $sku = $product->get_sku() ?: 'No disponible';
         $price = $product->get_price_html();
         $regular_price = $product->get_regular_price();
         $sale_price = $product->get_sale_price();
@@ -592,62 +689,53 @@ class WC_AI_Homeopathic_Chat {
         $description = wp_strip_all_tags($product->get_description() ?: '');
         $stock_status = $product->get_stock_status();
         $stock_quantity = $product->get_stock_quantity();
+        $product_url = get_permalink($product->get_id());
         
-        $stock_text = $stock_status === 'instock' ? 
-            '✅ Disponible' . ($stock_quantity ? " ({$stock_quantity} unidades)" : '') : 
-            '⏳ Consultar stock';
+        // Información de stock mejorada
+        if ($stock_status === 'instock') {
+            $stock_text = $stock_quantity ? "✅ En stock ({$stock_quantity} unidades)" : "✅ Disponible";
+        } else {
+            $stock_text = "⏳ Consultar disponibilidad";
+        }
         
-        // Obtener categorías
-        $categories = $product->get_category_ids();
-        $category_names = array();
-        foreach ($categories as $category_id) {
-            $category = get_term($category_id, 'product_cat');
-            if ($category && !is_wp_error($category)) {
-                $category_names[] = $category->name;
-            }
+        // Información de precio detallada
+        $price_info = "💰 Precio: {$price}";
+        if ($sale_price && $regular_price != $sale_price) {
+            $descuento = round((($regular_price - $sale_price) / $regular_price) * 100);
+            $price_info .= " 🎁 {$descuento}% OFF";
         }
         
         // Información de detección
         $detection_text = "";
         if ($detection_info) {
             $confianza_porcentaje = round($detection_info['confianza'] * 100);
-            $detection_text = "🎯 Detectado por: {$detection_info['tipo_coincidencia']} ({$confianza_porcentaje}% confianza)\n";
+            $detection_text = "🔍 Detectado por: {$detection_info['tipo_coincidencia']} ({$confianza_porcentaje}% confianza)\n";
+        }
+        
+        // Descripción breve (limitada)
+        $desc_text = "";
+        if ($short_description) {
+            $desc_clean = preg_replace('/\s+/', ' ', $short_description);
+            if (strlen($desc_clean) > 120) {
+                $desc_clean = substr($desc_clean, 0, 117) . '...';
+            }
+            $desc_text = "📝 {$desc_clean}\n";
         }
         
         // Construir información detallada
-        $info = "📦 {$title}\n";
+        $info = "🟢 PRODUCTO: {$title}\n";
         $info .= $detection_text;
         $info .= "🆔 SKU: {$sku}\n";
-        $info .= "💰 Precio: {$price}\n";
-        
-        if ($sale_price && $regular_price != $sale_price) {
-            $descuento = round((($regular_price - $sale_price) / $regular_price) * 100);
-            $info .= "🎁 Descuento: {$descuento}% OFF\n";
-        }
-        
+        $info .= "{$price_info}\n";
         $info .= "📊 Stock: {$stock_text}\n";
-        
-        if (!empty($category_names)) {
-            $info .= "📁 Categorías: " . implode(', ', $category_names) . "\n";
-        }
-        
-        if ($short_description) {
-            if (strlen($short_description) > 150) {
-                $short_description = substr($short_description, 0, 147) . '...';
-            }
-            $info .= "📝 Descripción: {$short_description}\n";
-        }
-        
-        // Añadir URL del producto
-        $product_url = get_permalink($product->get_id());
+        $info .= $desc_text;
         $info .= "🔗 Enlace: {$product_url}";
         
         return $info;
     }
     
-    // =========================================================================
-    // MÉTODOS EXISTENTES (se mantienen igual)
-    // =========================================================================
+    // ... (el resto de los métodos se mantienen igual de tu versión original)
+    // get_products_by_tags, get_tag_terms_for_category, search_products_by_tag, etc.
     
     private function get_products_by_tags($categorias) {
         $found_products = array();
@@ -879,11 +967,7 @@ class WC_AI_Homeopathic_Chat {
         return "📦 {$title}\n🆔 SKU: {$sku}\n💰 {$price}\n📊 {$stock_text}\n📝 {$short_description}";
     }
     
-    // ... (el resto de los métodos permanecen igual: normalizar_texto, analizar_sintomas_mejorado, build_prompt, etc.)
-    
-    // =========================================================================
-    // MÉTODOS DE NORMALIZACIÓN Y ANÁLISIS (se mantienen igual)
-    // =========================================================================
+    // ... (métodos de normalización y análisis se mantienen igual)
     
     private function normalizar_texto($texto) {
         if (!is_string($texto)) {
@@ -1123,37 +1207,7 @@ class WC_AI_Homeopathic_Chat {
             $total_padecimientos, $total_categorias, round($confianza_promedio * 100), implode(', ', $padecimientos_principales));
     }
     
-    private function build_prompt($message, $analysis, $relevant_products, $info_productos_mencionados = "", $productos_mencionados = array()) {
-        $categorias_text = !empty($analysis['categorias_detectadas']) ? "CATEGORÍAS DETECTADAS: " . implode(', ', $analysis['categorias_detectadas']) : "No se detectaron categorías específicas.";
-        $padecimientos_text = !empty($analysis['padecimientos_encontrados']) ? "PADECIMIENTOS IDENTIFICADOS: " . implode(', ', array_slice($analysis['padecimientos_encontrados'], 0, 8)) : "No se identificaron padecimientos específicos.";
-        
-        $hay_productos_mencionados = !empty($productos_mencionados);
-        $instrucciones_especiales = "";
-        
-        if ($hay_productos_mencionados) {
-            $nombres_productos = array();
-            foreach ($productos_mencionados as $item) $nombres_productos[] = $item['product']->get_name();
-            
-            $instrucciones_especiales = "\n\nINFORMACIÓN ESPECIAL - PRODUCTOS MENCIONADOS:\nEl usuario ha mencionado o mostrado interés en estos productos específicos: " . implode(', ', $nombres_productos) . "\n\nINSTRUCCIONES ADICIONALES:\n1. PRIORIZA la información sobre los productos mencionados\n2. Proporciona detalles específicos sobre estos productos\n3. Si el usuario pregunta por características, precio o disponibilidad, usa la información proporcionada\n4. Relaciona los productos mencionados con los síntomas descritos\n5. Si hay productos recomendados que complementan los productos mencionados, explícalo";
-        }
-        
-        $prompt = "Eres un homeópata experto. Analiza la consulta y recomienda productos específicos basándote en el análisis de síntomas.";
-
-        if ($hay_productos_mencionados) $prompt .= "\n\n{$info_productos_mencionados}";
-
-        $prompt .= "\n\nCONSULTA DEL PACIENTE:\n\"{$message}\"\n\nANÁLISIS DE SÍNTOMAS:\n{$analysis['resumen_analisis']}\n{$categorias_text}\n{$padecimientos_text}\n\nINVENTARIO DE PRODUCTOS RECOMENDADOS:\n{$relevant_products}{$instrucciones_especiales}\n\nINSTRUCCIONES PARA LA RECOMENDACIÓN:\n1. BASATE EXCLUSIVAMENTE en los productos listados arriba\n2. Prioriza los productos más específicos para los padecimientos detectados\n3. Para condiciones complejas, considera combinaciones de remedios\n4. Explica BREVEMENTE la indicación homeopática de cada producto\n5. Sé honesto si ningún producto es perfectamente adecuado\n6. Siempre aclara: \"Consulta con un profesional de la salud para diagnóstico preciso\"\n7. Recomienda máximo 3-4 productos principales\n8. Mantén un tono empático pero profesional\n9. " . ($hay_productos_mencionados ? "RESPONDE específicamente sobre los productos que el usuario mencionó" : "Si el usuario pregunta por productos específicos, sugiere consultar el catálogo completo") . "\n\nResponde en español de manera natural y práctica.";
-
-        return $prompt;
-    }
-    
-    // ... (los métodos restantes: enqueue_scripts, display_floating_chat, validate_ajax_request, etc. se mantienen igual)
-    
-    public function add_plugin_action_links($links) {
-        $settings_link = '<a href="' . admin_url('options-general.php?page=wc-ai-homeopathic-chat') . '">' . 
-                        __('Configuración', 'wc-ai-homeopathic-chat') . '</a>';
-        array_unshift($links, $settings_link);
-        return $links;
-    }
+    // ... (métodos restantes se mantienen igual)
     
     public function enqueue_scripts() {
         if (!$this->should_display_chat()) {
@@ -1217,8 +1271,16 @@ class WC_AI_Homeopathic_Chat {
                         </div>
                     </div>
                     <div class="wc-ai-chat-actions">
-                        <button type="button" class="wc-ai-chat-minimize" aria-label="<?php esc_attr_e('Minimizar chat', 'wc-ai-homeopathic-chat'); ?>">−</button>
-                        <button type="button" class="wc-ai-chat-close" aria-label="<?php esc_attr_e('Cerrar chat', 'wc-ai-homeopathic-chat'); ?>">×</button>
+                        <button type="button" class="wc-ai-chat-minimize" aria-label="<?php esc_attr_e('Minimizar chat', 'wc-ai-homeopathic-chat'); ?>">
+                            <svg class="wc-ai-icon-svg" viewBox="0 0 24 24" width="14" height="14">
+                                <path fill="currentColor" d="M20 14H4v-4h16"/>
+                            </svg>
+                        </button>
+                        <button type="button" class="wc-ai-chat-close" aria-label="<?php esc_attr_e('Cerrar chat', 'wc-ai-homeopathic-chat'); ?>">
+                            <svg class="wc-ai-icon-svg" viewBox="0 0 24 24" width="14" height="14">
+                                <path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                            </svg>
+                        </button>
                     </div>
                 </div>
                 
@@ -1331,11 +1393,11 @@ class WC_AI_Homeopathic_Chat {
         <div class="wrap">
             <h1><?php esc_html_e('Configuración del Chat Homeopático', 'wc-ai-homeopathic-chat'); ?></h1>
             <div class="card">
-                <h3><?php esc_html_e('Sistema de Análisis de Síntomas - VERSIÓN 2.5.0', 'wc-ai-homeopathic-chat'); ?></h3>
-                <p><?php esc_html_e('Sistema mejorado con detección avanzada de productos homeopáticos.', 'wc-ai-homeopathic-chat'); ?></p>
+                <h3><?php esc_html_e('Sistema de Análisis de Síntomas - VERSIÓN 2.5.1', 'wc-ai-homeopathic-chat'); ?></h3>
+                <p><?php esc_html_e('Sistema mejorado con detección avanzada de productos homeopáticos y respuestas enfocadas.', 'wc-ai-homeopathic-chat'); ?></p>
                 <p><strong><?php esc_html_e('Padecimientos configurados:', 'wc-ai-homeopathic-chat'); ?></strong> <?php echo $total_padecimientos; ?> en <?php echo count($this->padecimientos_humanos); ?> categorías</p>
                 <p><strong><?php esc_html_e('Detección de productos:', 'wc-ai-homeopathic-chat'); ?></strong> 6 estrategias de búsqueda mejoradas</p>
-                <p><strong><?php esc_html_e('Sinónimos:', 'wc-ai-homeopathic-chat'); ?></strong> +15 productos homeopáticos con variantes</p>
+                <p><strong><?php esc_html_e('Respuestas enfocadas:', 'wc-ai-homeopathic-chat'); ?></strong> Muestra solo productos mencionados cuando el usuario pregunta específicamente</p>
             </div>
             
             <form method="post" action="options.php">

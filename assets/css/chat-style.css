@@ -1,6 +1,6 @@
 /**
- * WC AI Homeopathic Chat - Styles
- * Version: 2.1.0
+ * WC AI Homeopathic Chat - Styles MEJORADO
+ * Version: 2.5.1
  */
 
 /* Container principal */
@@ -78,7 +78,7 @@
 .wc-ai-chat-window {
     position: absolute;
     bottom: 80px;
-    width: 350px;
+    width: 380px; /* Ligeramente más ancho para mejor legibilidad */
     max-width: 90vw;
     background: white;
     border-radius: 12px;
@@ -200,15 +200,18 @@
     transform: rotate(90deg) scale(1.2);
 }
 
-/* Área de mensajes */
+/* Área de mensajes MEJORADA para legibilidad */
 .wc-ai-chat-messages {
-    height: 350px;
-    max-height: 50vh;
+    height: 400px; /* Más alto para mejor visualización */
+    max-height: 55vh;
     overflow-y: auto;
     padding: 20px;
     background: #f8f9fa;
     scrollbar-width: thin;
     scrollbar-color: #c1c1c1 transparent;
+    display: flex;
+    flex-direction: column;
+    gap: 16px; /* Mejor espaciado entre mensajes */
 }
 
 .wc-ai-chat-messages::-webkit-scrollbar {
@@ -228,10 +231,10 @@
     background: #a8a8a8;
 }
 
-/* Mensajes individuales */
+/* Mensajes individuales MEJORADOS */
 .wc-ai-chat-message {
-    margin-bottom: 16px;
     animation: wc-ai-message-appear 0.3s ease;
+    max-width: 85%; /* Limitar ancho para mejor lectura */
 }
 
 @keyframes wc-ai-message-appear {
@@ -246,6 +249,7 @@
 }
 
 .wc-ai-chat-message.user {
+    align-self: flex-end;
     text-align: right;
 }
 
@@ -253,36 +257,103 @@
     background: #667eea;
     color: white;
     margin-left: auto;
+    border-bottom-right-radius: 4px;
 }
 
 .wc-ai-chat-message.bot .wc-ai-message-content {
     background: white;
     color: #333;
     border: 1px solid #e1e5e9;
+    border-bottom-left-radius: 4px;
 }
 
+/* Contenido de mensajes MEJORADO */
 .wc-ai-message-content {
     display: inline-block;
-    padding: 12px 16px;
+    padding: 14px 18px; /* Más padding para mejor legibilidad */
     border-radius: 18px;
-    max-width: 80%;
+    max-width: 100%;
     word-wrap: break-word;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    line-height: 1.4;
+    line-height: 1.5; /* Mejor interlineado */
+    font-size: 14px;
+    text-align: left; /* Forzar alineación izquierda para mejor lectura */
+}
+
+/* Estilos específicos para mensajes de productos */
+.wc-ai-message-content .product-info {
+    background: #f8f9fa;
+    border-left: 3px solid #667eea;
+    padding: 12px;
+    margin: 8px 0;
+    border-radius: 8px;
+}
+
+.wc-ai-message-content .product-price {
+    color: #25D366;
+    font-weight: 600;
+    font-size: 15px;
+}
+
+.wc-ai-message-content .product-sku {
+    color: #666;
+    font-size: 12px;
+    font-family: monospace;
+}
+
+.wc-ai-message-content .product-stock {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    margin-left: 8px;
+}
+
+.wc-ai-message-content .product-stock.in-stock {
+    background: #d4edda;
+    color: #155724;
+}
+
+.wc-ai-message-content .product-stock.out-of-stock {
+    background: #f8d7da;
+    color: #721c24;
 }
 
 .wc-ai-message-content p {
-    margin: 0 0 8px 0;
+    margin: 0 0 12px 0; /* Más espacio entre párrafos */
+    line-height: 1.5;
 }
 
 .wc-ai-message-content p:last-child {
     margin-bottom: 0;
 }
 
+.wc-ai-message-content ul,
+.wc-ai-message-content ol {
+    margin: 12px 0;
+    padding-left: 24px; /* Más indentación */
+}
+
+.wc-ai-message-content li {
+    margin: 6px 0; /* Más espacio entre items de lista */
+    line-height: 1.4;
+}
+
+.wc-ai-message-content strong {
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.wc-ai-message-content em {
+    font-style: italic;
+    color: #7f8c8d;
+}
+
 .wc-ai-message-time {
     font-size: 11px;
     color: #999;
-    margin-top: 4px;
+    margin-top: 6px;
     display: flex;
     align-items: center;
     gap: 4px;
@@ -472,12 +543,18 @@
     }
     
     .wc-ai-chat-messages {
-        height: 300px;
-        max-height: 40vh;
+        height: 350px;
+        max-height: 50vh;
+        padding: 15px;
+    }
+    
+    .wc-ai-chat-message {
+        max-width: 90%;
     }
     
     .wc-ai-message-content {
-        max-width: 90%;
+        padding: 12px 15px;
+        font-size: 13px;
     }
 }
 
@@ -522,4 +599,12 @@
 .wc-ai-whatsapp-fallback,
 .wc-ai-chat-input textarea {
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Indicador de caché */
+.wc-ai-cache-indicator {
+    font-size: 0.7em;
+    opacity: 0.6;
+    font-style: italic;
+    margin-left: 8px;
 }
