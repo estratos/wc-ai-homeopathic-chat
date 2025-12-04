@@ -2,7 +2,6 @@
 /**
  * Class WC_AI_Chat_Prompt_Build
  * Contiene métodos para construcción de prompts
- * Version: 2.5.3
  */
 
 if (!defined('ABSPATH')) {
@@ -11,10 +10,6 @@ if (!defined('ABSPATH')) {
 
 class WC_AI_Chat_Prompt_Build {
     
-    /**
-     * Construye prompt mejorado - VERSIÓN 2.5.3
-     * CON INSTRUCCIONES MÁS CLARAS SOBRE CUÁNDO MOSTRAR SOLO PRODUCTOS ESPECÍFICOS
-     */
     public function build_prompt_mejorado($message, $analysis, $relevant_products, $info_productos_mencionados = "", $productos_mencionados = array(), $mostrar_solo_productos_mencionados = false) {
         $categorias_text = !empty($analysis['categorias_detectadas']) ? 
             "CATEGORÍAS DETECTADAS: " . implode(', ', $analysis['categorias_detectadas']) : 
@@ -82,10 +77,6 @@ class WC_AI_Chat_Prompt_Build {
         return $prompt;
     }
     
-    /**
-     * Obtiene información detallada de productos mencionados - MEJORADA
-     * INCLUYE PRECIO Y SKU OBLIGATORIAMENTE
-     */
     public function get_info_productos_mencionados($productos_mencionados) {
         if (empty($productos_mencionados)) {
             return "";
@@ -98,14 +89,12 @@ class WC_AI_Chat_Prompt_Build {
             $info .= $this->format_detailed_product_info($product, $item) . "\n---\n";
         }
         
-        $info .= "\n💡 INFORMACIÓN IMPORTANTE:\n- Precios en " . get_woocommerce_currency_symbol() . "\n- Disponibilidad sujeta a stock\n- SKU único para cada producto\n- INCLUYE PRECIO Y SKU EN TODAS LAS RESPUESTAS";
+        $currency_symbol = function_exists('get_woocommerce_currency_symbol') ? get_woocommerce_currency_symbol() : '$';
+        $info .= "\n💡 INFORMACIÓN IMPORTANTE:\n- Precios en " . $currency_symbol . "\n- Disponibilidad sujeta a stock\n- SKU único para cada producto\n- INCLUYE PRECIO Y SKU EN TODAS LAS RESPUESTAS";
+        
         return $info;
     }
     
-    /**
-     * Formatea información detallada del producto - MEJORADA
-     * INCLUYE PRECIO Y SKU DE FORMA DESTACADA
-     */
     private function format_detailed_product_info($product, $detection_info = null) {
         $title = $product->get_name();
         $sku = $product->get_sku() ?: 'No disponible';
@@ -113,19 +102,18 @@ class WC_AI_Chat_Prompt_Build {
         $regular_price = $product->get_regular_price();
         $sale_price = $product->get_sale_price();
         $short_description = wp_strip_all_tags($product->get_short_description() ?: '');
-        $description = wp_strip_all_tags($product->get_description() ?: '');
         $stock_status = $product->get_stock_status();
         $stock_quantity = $product->get_stock_quantity();
         $product_url = get_permalink($product->get_id());
         
-        // Información de stock mejorada
+        // Información de stock
         if ($stock_status === 'instock') {
             $stock_text = $stock_quantity ? "✅ En stock ({$stock_quantity} unidades)" : "✅ Disponible";
         } else {
             $stock_text = "⏳ Consultar disponibilidad";
         }
         
-        // Información de precio detallada - DESTACADA
+        // Información de precio
         $price_info = "💰 PRECIO: {$price}";
         if ($sale_price && $regular_price != $sale_price) {
             $descuento = round((($regular_price - $sale_price) / $regular_price) * 100);
@@ -139,7 +127,7 @@ class WC_AI_Chat_Prompt_Build {
             $detection_text = "🔍 Detectado por: {$detection_info['tipo_coincidencia']} ({$confianza_porcentaje}% confianza)\n";
         }
         
-        // Descripción breve (limitada)
+        // Descripción breve
         $desc_text = "";
         if ($short_description) {
             $desc_clean = preg_replace('/\s+/', ' ', $short_description);
@@ -149,11 +137,11 @@ class WC_AI_Chat_Prompt_Build {
             $desc_text = "📝 {$desc_clean}\n";
         }
         
-        // Construir información detallada con PRECIO Y SKU DESTACADOS
+        // Construir información detallada
         $info = "🟢 PRODUCTO: {$title}\n";
         $info .= $detection_text;
-        $info .= "🆔 SKU: {$sku}\n"; // SKU DESTACADO
-        $info .= "{$price_info}\n"; // PRECIO DESTACADO
+        $info .= "🆔 SKU: {$sku}\n";
+        $info .= "{$price_info}\n";
         $info .= "📊 Stock: {$stock_text}\n";
         $info .= $desc_text;
         $info .= "🔗 Enlace: {$product_url}";
@@ -161,9 +149,6 @@ class WC_AI_Chat_Prompt_Build {
         return $info;
     }
     
-    /**
-     * Determina si debe mostrar solo los productos mencionados - VERSIÓN MEJORADA 2.5.3
-     */
     public function debe_mostrar_solo_productos_mencionados($productos_mencionados, $message) {
         if (empty($productos_mencionados)) {
             return false;
@@ -177,7 +162,7 @@ class WC_AI_Chat_Prompt_Build {
             }
         }
         
-        // ANÁLISIS MEJORADO: Verificar si el usuario realmente está preguntando por productos específicos
+        // Verificar si el usuario está preguntando por productos específicos
         $message_lower = strtolower($message);
         $palabras_especificas = array(
             'comprar', 'precio de', 'cuesta', 'vale', 'cotizar', 'cotización',
@@ -185,19 +170,11 @@ class WC_AI_Chat_Prompt_Build {
             'tienen', 'venden', 'disponible', 'disponen', 'cuánto', 'qué precio'
         );
         
-        $es_consulta_especifica = false;
         foreach ($palabras_especificas as $palabra) {
             if (strpos($message_lower, $palabra) !== false) {
-                $es_consulta_especifica = true;
                 error_log("WC AI Chat Debug - Palabra específica detectada: " . $palabra);
-                break;
+                return true;
             }
-        }
-        
-        // Si el usuario está preguntando específicamente por productos y tenemos detecciones
-        if ($es_consulta_especifica && !empty($productos_mencionados)) {
-            error_log("WC AI Chat Debug - Consulta específica detectada, mostrando solo productos mencionados");
-            return true;
         }
         
         return false;

@@ -2,7 +2,6 @@
 /**
  * Class WC_AI_Chat_Solutions_Methods
  * Contiene métodos para operaciones con keywords y soluciones
- * Version: 2.5.3
  */
 
 if (!defined('ABSPATH')) {
@@ -18,9 +17,6 @@ class WC_AI_Chat_Solutions_Methods {
         $this->initialize_padecimientos_map();
     }
     
-    /**
-     * Inicializa el mapa de padecimientos humanos
-     */
     private function initialize_padecimientos_map() {
         $this->padecimientos_humanos = array(
             "infecciosas" => array("gripe", "influenza", "resfriado", "covid", "coronavirus", "neumonía", "bronquitis", "tuberculosis", "hepatitis", "VIH", "sida", "herpes", "varicela", "sarampión", "paperas", "rubeola", "dengue", "malaria", "cólera"),
@@ -40,16 +36,10 @@ class WC_AI_Chat_Solutions_Methods {
         );
     }
     
-    /**
-     * Obtiene el mapa de padecimientos
-     */
     public function get_padecimientos_map() {
         return $this->padecimientos_humanos;
     }
     
-    /**
-     * Analiza síntomas mejorado - VERSIÓN 2.5.3
-     */
     public function analizar_sintomas_mejorado($message) {
         $message_normalized = $this->normalizar_texto($message);
         $categorias_detectadas = array();
@@ -100,49 +90,53 @@ class WC_AI_Chat_Solutions_Methods {
         );
     }
     
-    /**
-     * Búsqueda avanzada de coincidencias
-     */
     private function buscar_coincidencia_avanzada($texto, $busqueda, $padecimiento_original) {
         $resultado = array('encontrado' => false, 'confianza' => 0.0, 'tipo' => 'ninguna');
         
         if ($texto === $busqueda || strpos($texto, $busqueda) !== false) {
-            $resultado['encontrado'] = true; $resultado['confianza'] = 1.0; $resultado['tipo'] = 'exacta';
+            $resultado['encontrado'] = true;
+            $resultado['confianza'] = 1.0;
+            $resultado['tipo'] = 'exacta';
             return $resultado;
         }
         
         if (strpos($busqueda, ' ') !== false) {
             $confianza = $this->coincidencia_palabras_multiples($texto, $busqueda);
             if ($confianza >= 0.6) {
-                $resultado['encontrado'] = true; $resultado['confianza'] = $confianza; $resultado['tipo'] = 'parcial_multiple';
+                $resultado['encontrado'] = true;
+                $resultado['confianza'] = $confianza;
+                $resultado['tipo'] = 'parcial_multiple';
                 return $resultado;
             }
         }
         
         $confianza_sinonimos = $this->buscar_sinonimos($texto, $busqueda, $padecimiento_original);
         if ($confianza_sinonimos > 0) {
-            $resultado['encontrado'] = true; $resultado['confianza'] = $confianza_sinonimos; $resultado['tipo'] = 'sinonimo';
+            $resultado['encontrado'] = true;
+            $resultado['confianza'] = $confianza_sinonimos;
+            $resultado['tipo'] = 'sinonimo';
             return $resultado;
         }
         
         $confianza_fonetica = $this->busqueda_fonetica($texto, $busqueda);
         if ($confianza_fonetica >= 0.8) {
-            $resultado['encontrado'] = true; $resultado['confianza'] = $confianza_fonetica; $resultado['tipo'] = 'fonetica';
+            $resultado['encontrado'] = true;
+            $resultado['confianza'] = $confianza_fonetica;
+            $resultado['tipo'] = 'fonetica';
             return $resultado;
         }
         
         $confianza_subcadena = $this->busqueda_subcadena_tolerante($texto, $busqueda);
         if ($confianza_subcadena >= 0.7) {
-            $resultado['encontrado'] = true; $resultado['confianza'] = $confianza_subcadena; $resultado['tipo'] = 'subcadena';
+            $resultado['encontrado'] = true;
+            $resultado['confianza'] = $confianza_subcadena;
+            $resultado['tipo'] = 'subcadena';
             return $resultado;
         }
         
         return $resultado;
     }
     
-    /**
-     * Coincidencia de palabras múltiples
-     */
     private function coincidencia_palabras_multiples($texto, $busqueda) {
         $palabras_busqueda = explode(' ', $busqueda);
         $palabras_texto = explode(' ', $texto);
@@ -155,17 +149,15 @@ class WC_AI_Chat_Solutions_Methods {
             
             foreach ($palabras_texto as $palabra_texto) {
                 if ($this->es_coincidencia_similar($palabra, $palabra_texto)) {
-                    $coincidencias++; break;
+                    $coincidencias++;
+                    break;
                 }
             }
         }
         
-        return $coincidencias / $total_palabras;
+        return $total_palabras > 0 ? $coincidencias / $total_palabras : 0;
     }
     
-    /**
-     * Búsqueda por sinónimos
-     */
     private function buscar_sinonimos($texto, $busqueda, $padecimiento_original) {
         $sinonimos = $this->get_sinonimos_padecimiento($padecimiento_original);
         
@@ -179,9 +171,6 @@ class WC_AI_Chat_Solutions_Methods {
         return 0;
     }
     
-    /**
-     * Búsqueda fonética
-     */
     private function busqueda_fonetica($texto, $busqueda) {
         $metaphone_texto = metaphone($texto);
         $metaphone_busqueda = metaphone($busqueda);
@@ -192,9 +181,6 @@ class WC_AI_Chat_Solutions_Methods {
         return $similitud / 100;
     }
     
-    /**
-     * Búsqueda de subcadena tolerante
-     */
     private function busqueda_subcadena_tolerante($texto, $busqueda) {
         $longitud_busqueda = strlen($busqueda);
         $longitud_texto = strlen($texto);
@@ -212,9 +198,6 @@ class WC_AI_Chat_Solutions_Methods {
         return 0;
     }
     
-    /**
-     * Verifica si dos palabras son similares
-     */
     private function es_coincidencia_similar($palabra1, $palabra2) {
         if ($palabra1 === $palabra2) return true;
         
@@ -224,9 +207,6 @@ class WC_AI_Chat_Solutions_Methods {
         return $similitud >= 80;
     }
     
-    /**
-     * Obtiene sinónimos de padecimientos
-     */
     private function get_sinonimos_padecimiento($padecimiento) {
         $sinonimos = array(
             'cáncer' => array('cancer', 'tumor', 'neoplasia', 'malignidad'),
@@ -245,11 +225,10 @@ class WC_AI_Chat_Solutions_Methods {
         return isset($sinonimos[$padecimiento]) ? $sinonimos[$padecimiento] : array();
     }
     
-    /**
-     * Genera resumen de análisis mejorado
-     */
     private function generar_resumen_analisis_mejorado($categorias, $padecimientos) {
-        if (empty($categorias)) return "No se detectaron padecimientos específicos en la descripción.";
+        if (empty($categorias)) {
+            return "No se detectaron padecimientos específicos en la descripción.";
+        }
         
         $total_categorias = count($categorias);
         $total_padecimientos = count($padecimientos);
@@ -263,13 +242,15 @@ class WC_AI_Chat_Solutions_Methods {
         
         $confianza_promedio = $total_padecimientos > 0 ? $confianza_promedio / $total_padecimientos : 0;
         
-        return sprintf("Se detectaron %d padecimientos en %d categorías (confianza promedio: %d%%). Principales: %s",
-            $total_padecimientos, $total_categorias, round($confianza_promedio * 100), implode(', ', $padecimientos_principales));
+        return sprintf(
+            "Se detectaron %d padecimientos en %d categorías (confianza promedio: %d%%). Principales: %s",
+            $total_padecimientos,
+            $total_categorias,
+            round($confianza_promedio * 100),
+            implode(', ', $padecimientos_principales)
+        );
     }
     
-    /**
-     * Normaliza texto
-     */
     public function normalizar_texto($texto) {
         if (!is_string($texto)) {
             return '';
@@ -284,9 +265,6 @@ class WC_AI_Chat_Solutions_Methods {
         return trim($texto);
     }
     
-    /**
-     * Remueve acentos
-     */
     private function remover_acentos($texto) {
         $acentos = array(
             'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u',
@@ -304,15 +282,12 @@ class WC_AI_Chat_Solutions_Methods {
         return strtr($texto, $acentos);
     }
     
-    /**
-     * Corrige errores comunes
-     */
     private function corregir_errores_comunes($texto) {
         $errores_comunes = array(
             'canser' => 'cancer', 'cansér' => 'cancer', 'kancer' => 'cancer', 'kanser' => 'cancer',
             'dolór' => 'dolor', 'dolores' => 'dolor', 'cabeza' => 'cabeza', 'kabeza' => 'cabeza',
             'estres' => 'estres', 'estre s' => 'estres', 'estrés' => 'estres',
-            'insomnio' => 'insomnio', 'insomnio' => 'insomnio', 'insonio' => 'insomnio',
+            'insomnio' => 'insomnio', 'insonio' => 'insomnio',
             'ansiedad' => 'ansiedad', 'ansieda' => 'ansiedad', 'ansiedá' => 'ansiedad',
             'digestion' => 'digestion', 'digestión' => 'digestion',
             'problema' => 'problema', 'enfermeda' => 'enfermedad', 'sintoma' => 'sintoma'
@@ -321,35 +296,20 @@ class WC_AI_Chat_Solutions_Methods {
         return strtr($texto, $errores_comunes);
     }
     
-    /**
-     * Búsqueda mejorada de productos por categorías - VERSIÓN 2.5.3
-     */
     public function get_relevant_products_by_categories_mejorado($categorias, $padecimientos_encontrados) {
         $all_products = array();
         
-        // ESTRATEGIA 1: Búsqueda por TAGS (prioridad máxima)
+        // Estrategia 1: Búsqueda por TAGS
         $products_by_tags = $this->get_products_by_tags($categorias);
         $all_products = array_merge($all_products, $products_by_tags);
         
-        // ESTRATEGIA 2: Si no se encontraron productos por TAGS, buscar por categorías WooCommerce
+        // Estrategia 2: Búsqueda por categorías WooCommerce
         if (empty($all_products)) {
             $products_by_categories = $this->get_products_by_wc_categories($categorias);
             $all_products = array_merge($all_products, $products_by_categories);
         }
         
-        // ESTRATEGIA 3: Búsqueda por nombres de padecimientos en títulos/descripciones
-        if (empty($all_products)) {
-            $products_by_symptoms = $this->buscar_productos_por_sintomas($padecimientos_encontrados);
-            $all_products = array_merge($all_products, $products_by_symptoms);
-        }
-        
-        // ESTRATEGIA 4: Búsqueda ampliada en contenido de productos
-        if (empty($all_products)) {
-            $products_by_content = $this->buscar_en_contenido_productos($padecimientos_encontrados);
-            $all_products = array_merge($all_products, $products_by_content);
-        }
-        
-        // ESTRATEGIA 5: Productos polivalentes como último recurso
+        // Estrategia 3: Productos polivalentes como último recurso
         if (empty($all_products)) {
             $all_products = $this->get_polivalent_products();
         }
@@ -358,155 +318,6 @@ class WC_AI_Chat_Solutions_Methods {
         return $this->format_products_info(array_slice($all_products, 0, 8));
     }
     
-    /**
-     * Búsqueda de productos por síntomas en títulos y descripciones
-     */
-    private function buscar_productos_por_sintomas($padecimientos_encontrados) {
-        if (empty($padecimientos_encontrados)) {
-            return array();
-        }
-        
-        $found_products = array();
-        $all_products = $this->get_all_store_products();
-        
-        foreach ($all_products as $product) {
-            $product_text = $this->normalizar_texto(
-                $product->get_name() . ' ' . 
-                $product->get_description() . ' ' . 
-                $product->get_short_description()
-            );
-            
-            foreach ($padecimientos_encontrados as $padecimiento_info) {
-                $padecimiento = $this->normalizar_texto($padecimiento_info['padecimiento']);
-                
-                // Buscar coincidencia en el texto del producto
-                if (strpos($product_text, $padecimiento) !== false) {
-                    $found_products[$product->get_id()] = $product;
-                    break;
-                }
-                
-                // Buscar sinónimos
-                $sinonimos = $this->get_sinonimos_padecimiento($padecimiento_info['padecimiento']);
-                foreach ($sinonimos as $sinonimo) {
-                    $sinonimo_normalized = $this->normalizar_texto($sinonimo);
-                    if (strpos($product_text, $sinonimo_normalized) !== false) {
-                        $found_products[$product->get_id()] = $product;
-                        break 2;
-                    }
-                }
-            }
-        }
-        
-        return array_values($found_products);
-    }
-    
-    /**
-     * Búsqueda ampliada en contenido de productos
-     */
-    private function buscar_en_contenido_productos($padecimientos_encontrados) {
-        if (empty($padecimientos_encontrados)) {
-            return array();
-        }
-        
-        $found_products = array();
-        $all_products = $this->get_all_store_products();
-        
-        // Mapeo de padecimientos a términos de búsqueda ampliados
-        $terminos_ampliados = $this->get_terminos_ampliados_busqueda($padecimientos_encontrados);
-        
-        foreach ($all_products as $product) {
-            $score = 0;
-            $product_text = $this->normalizar_texto(
-                $product->get_name() . ' ' . 
-                $product->get_description() . ' ' . 
-                $product->get_short_description() . ' ' .
-                implode(' ', wc_get_product_tag_list($product->get_id())) . ' ' .
-                implode(' ', wc_get_product_category_list($product->get_id()))
-            );
-            
-            foreach ($terminos_ampliados as $termino) {
-                if (strpos($product_text, $termino) !== false) {
-                    $score++;
-                }
-            }
-            
-            // Si tiene al menos 2 coincidencias, incluir el producto
-            if ($score >= 2) {
-                $found_products[$product->get_id()] = $product;
-            }
-        }
-        
-        return array_values($found_products);
-    }
-    
-    /**
-     * Términos ampliados para búsqueda más flexible
-     */
-    private function get_terminos_ampliados_busqueda($padecimientos_encontrados) {
-        $terminos = array();
-        
-        $mapeo_terminos = array(
-            'dolor de cabeza' => array('cefalea', 'migraña', 'jaqueca', 'dolor cabeza', 'cabezas'),
-            'estrés' => array('estres', 'tension', 'nervios', 'ansiedad', 'relajante', 'calmante'),
-            'insomnio' => array('insomnio', 'sueño', 'dormir', 'descanso', 'relajación'),
-            'ansiedad' => array('ansiedad', 'nerviosismo', 'inquietud', 'calmante', 'relajante'),
-            'gripe' => array('gripe', 'resfriado', 'congestión', 'tos', 'fiebre', 'catarro', 'infección'),
-            'digestión' => array('digestión', 'digestivo', 'estómago', 'gastritis', 'acidez', 'reflujo'),
-            'dolor muscular' => array('muscular', 'dolor muscular', 'contractura', 'calambre', 'inflamación'),
-            'artritis' => array('artritis', 'articulación', 'dolor articular', 'inflamación articular'),
-            'fatiga' => array('fatiga', 'cansancio', 'agotamiento', 'energía', 'vitalidad'),
-            'depresión' => array('depresión', 'tristeza', 'ánimo', 'estado de ánimo', 'bienestar emocional')
-        );
-        
-        foreach ($padecimientos_encontrados as $padecimiento_info) {
-            $padecimiento = $this->normalizar_texto($padecimiento_info['padecimiento']);
-            $terminos[] = $padecimiento;
-            
-            // Añadir términos relacionados
-            if (isset($mapeo_terminos[$padecimiento_info['padecimiento']])) {
-                $terminos = array_merge($terminos, $mapeo_terminos[$padecimiento_info['padecimiento']]);
-            }
-            
-            // Añadir sinónimos
-            $sinonimos = $this->get_sinonimos_padecimiento($padecimiento_info['padecimiento']);
-            $terminos = array_merge($terminos, $sinonimos);
-        }
-        
-        return array_unique(array_map(array($this, 'normalizar_texto'), $terminos));
-    }
-    
-    /**
-     * Obtiene todos los productos de la tienda (con cache)
-     */
-    private function get_all_store_products() {
-        if (!empty($this->productos_cache)) {
-            return $this->productos_cache;
-        }
-        
-        $args = array(
-            'post_type' => 'product',
-            'posts_per_page' => -1,
-            'post_status' => 'publish',
-            'fields' => 'ids'
-        );
-        
-        $product_ids = get_posts($args);
-        $products = array();
-        
-        foreach ($product_ids as $product_id) {
-            $product = wc_get_product($product_id);
-            if ($product && $product->is_visible()) {
-                $products[] = $product;
-            }
-        }
-        
-        $this->productos_cache = $products;
-        return $products;
-    }
-    
-    /**
-     * Búsqueda de productos por tags
-     */
     private function get_products_by_tags($categorias) {
         $found_products = array();
         
@@ -527,9 +338,6 @@ class WC_AI_Chat_Solutions_Methods {
         return array_values($found_products);
     }
     
-    /**
-     * Obtiene términos de tags por categoría
-     */
     private function get_tag_terms_for_category($categoria) {
         $tag_mapping = array(
             "infecciosas" => array('infeccioso', 'infeccion', 'gripe', 'resfriado', 'viral', 'bacteriano'),
@@ -551,9 +359,6 @@ class WC_AI_Chat_Solutions_Methods {
         return isset($tag_mapping[$categoria]) ? $tag_mapping[$categoria] : array($categoria);
     }
     
-    /**
-     * Busca productos por tag
-     */
     private function search_products_by_tag($tag_name) {
         $args = array(
             'post_type' => 'product',
@@ -586,9 +391,6 @@ class WC_AI_Chat_Solutions_Methods {
         return $products;
     }
     
-    /**
-     * Búsqueda de productos por categorías WooCommerce
-     */
     private function get_products_by_wc_categories($categorias) {
         $found_products = array();
         
@@ -609,9 +411,6 @@ class WC_AI_Chat_Solutions_Methods {
         return array_values($found_products);
     }
     
-    /**
-     * Obtiene términos de categoría WooCommerce por categoría
-     */
     private function get_wc_category_terms_for_category($categoria) {
         $category_mapping = array(
             "infecciosas" => array('infecciosas', 'enfermedades-infecciosas'),
@@ -631,9 +430,6 @@ class WC_AI_Chat_Solutions_Methods {
         return isset($category_mapping[$categoria]) ? $category_mapping[$categoria] : array($categoria);
     }
     
-    /**
-     * Busca productos por categoría WooCommerce
-     */
     private function search_products_by_wc_category($category_name) {
         $args = array(
             'post_type' => 'product',
@@ -666,9 +462,6 @@ class WC_AI_Chat_Solutions_Methods {
         return $products;
     }
     
-    /**
-     * Obtiene productos polivalentes
-     */
     private function get_polivalent_products() {
         $args = array(
             'post_type' => 'product',
@@ -701,9 +494,6 @@ class WC_AI_Chat_Solutions_Methods {
         return $products;
     }
     
-    /**
-     * Formatea información de productos
-     */
     private function format_products_info($products) {
         if (empty($products)) {
             return "No hay productos específicos para recomendar basados en el análisis.";
@@ -721,9 +511,6 @@ class WC_AI_Chat_Solutions_Methods {
         return $products_info;
     }
     
-    /**
-     * Formatea información básica de producto
-     */
     private function format_product_info_basico($product) {
         $title = $product->get_name();
         $sku = $product->get_sku() ?: 'N/A';
