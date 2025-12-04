@@ -3,7 +3,7 @@
  * Plugin Name: WC AI Homeopathic Chat
  * Plugin URI: https://github.com/estratos/wc-ai-homeopathic-chat
  * Description: Chatbot flotante para recomendaciones homeopáticas con WooCommerce.
- * Version: 2.5.4
+ * Version: 2.5.5
  * Author: Julio Rodríguez
  * Author URI: https://github.com/estratos
  * License: GPL v2 or later
@@ -18,19 +18,41 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('WC_AI_HOMEOPATHIC_CHAT_VERSION', '2.5.4');
+define('WC_AI_HOMEOPATHIC_CHAT_VERSION', '2.5.5');
 define('WC_AI_HOMEOPATHIC_CHAT_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('WC_AI_HOMEOPATHIC_CHAT_PLUGIN_PATH', plugin_dir_path(__FILE__));
 define('WC_AI_HOMEOPATHIC_CHAT_CACHE_TIME', 30 * DAY_IN_SECONDS);
 
+// Incluir todas las clases
+require_once WC_AI_HOMEOPATHIC_CHAT_PLUGIN_PATH . 'class-solutions-methods.php';
+require_once WC_AI_HOMEOPATHIC_CHAT_PLUGIN_PATH . 'class-prompt-build.php';
+require_once WC_AI_HOMEOPATHIC_CHAT_PLUGIN_PATH . 'class-symptoms-db.php';
+require_once WC_AI_HOMEOPATHIC_CHAT_PLUGIN_PATH . 'class-learning-engine.php';
+
 class WC_AI_Homeopathic_Chat {
     
     private $settings;
-    private $padecimientos_humanos;
+    private $solutions_methods;
+    private $prompt_build;
+    private $symptoms_db;
+    private $learning_engine;
     private $productos_cache;
     
     public function __construct() {
+        // Inicializar clases
+        $this->solutions_methods = new WC_AI_Chat_Solutions_Methods();
+        $this->prompt_build = new WC_AI_Chat_Prompt_Build();
+        $this->symptoms_db = new WC_AI_Chat_Symptoms_DB();
+        $this->learning_engine = new WC_AI_Chat_Learning_Engine($this->symptoms_db);
+        
         add_action('plugins_loaded', array($this, 'init'));
+        register_activation_hook(__FILE__, array($this, 'activate_plugin'));
+    }
+    
+    public function activate_plugin() {
+        // Crear tablas de la base de datos al activar el plugin
+        $this->symptoms_db->create_tables();
+        $this->learning_engine->create_tables();
     }
     
     public function init() {
@@ -40,9 +62,11 @@ class WC_AI_Homeopathic_Chat {
         }
         
         $this->load_settings();
-        $this->initialize_padecimientos_map();
         $this->initialize_hooks();
         $this->productos_cache = array();
+        
+        // Inicializar motor de aprendizaje periódicamente
+        $this->schedule_learning_tasks();
     }
     
     private function load_settings() {
@@ -55,26 +79,8 @@ class WC_AI_Homeopathic_Chat {
             'whatsapp_message' => get_option('wc_ai_homeopathic_chat_whatsapp_message', 'Hola, me interesa obtener asesoramiento homeopático'),
             'enable_floating' => get_option('wc_ai_homeopathic_chat_floating', true),
             'show_on_products' => get_option('wc_ai_homeopathic_chat_products', true),
-            'show_on_pages' => get_option('wc_ai_homeopathic_chat_pages', false)
-        );
-    }
-    
-    private function initialize_padecimientos_map() {
-        $this->padecimientos_humanos = array(
-            "infecciosas" => array("gripe", "influenza", "resfriado", "covid", "coronavirus", "neumonía", "bronquitis", "tuberculosis", "hepatitis", "VIH", "sida", "herpes", "varicela", "sarampión", "paperas", "rubeola", "dengue", "malaria", "cólera"),
-            "cardiovasculares" => array("hipertensión", "presión alta", "infarto", "ataque cardíaco", "arritmia", "insuficiencia cardíaca", "angina de pecho", "accidente cerebrovascular", "derrame cerebral", "trombosis", "varices", "arterioesclerosis"),
-            "respiratorias" => array("asma", "alergia", "rinitis", "sinusitis", "epoc", "enfisema", "apnea del sueño", "tos crónica", "insuficiencia respiratoria"),
-            "digestivas" => array("gastritis", "úlcera", "reflujo", "acidez", "colitis", "síndrome de intestino irritable", "estreñimiento", "diarrea", "hemorroides", "cirrosis", "hígado graso", "pancreatitis", "diverticulitis"),
-            "neurologicas" => array("migraña", "dolor de cabeza", "cefalea", "epilepsia", "alzheimer", "parkinson", "esclerosis múltiple", "neuralgia", "neuropatía", "demencia"),
-            "musculoesqueléticas" => array("artritis", "artrosis", "osteoporosis", "lumbalgia", "ciática", "fibromialgia", "tendinitis", "bursitis", "escoliosis", "hernia discal"),
-            "endocrinas" => array("diabetes", "tiroides", "hipotiroidismo", "hipertiroidismo", "obesidad", "sobrepeso", "colesterol alto", "triglicéridos", "gota", "osteoporosis"),
-            "mentales" => array("depresión", "ansiedad", "estrés", "ataque de pánico", "trastorno bipolar", "esquizofrenia", "TOC", "trastorno de estrés postraumático", "insomnio"),
-            "cancer" => array("cáncer", "tumor", "leucemia", "linfoma", "melanoma", "cáncer de pulmón", "cáncer de mama", "cáncer de próstata", "cáncer de colon", "cáncer de piel"),
-            "sintomas_generales" => array("fiebre", "dolor", "malestar", "fatiga", "cansancio", "debilidad", "mareo", "náuseas", "vómitos", "pérdida de peso", "aumento de peso", "inapetencia", "sed", "sudoración"),
-            "sintomas_especificos" => array("dolor abdominal", "dolor torácico", "dolor articular", "dolor muscular", "tos", "estornudos", "congestión nasal", "dificultad para respirar", "palpitaciones", "hinchazón", "picazón", "erupción cutánea", "sangrado", "moretones"),
-            "dermatologicas" => array("acné", "eczema", "psoriasis", "urticaria", "dermatitis", "rosácea", "vitíligo", "hongos", "micosis", "verrugas"),
-            "oculares" => array("miopía", "astigmatismo", "presbicia", "cataratas", "glaucoma", "conjuntivitis", "ojo seco", "degeneración macular"),
-            "auditivas" => array("sordera", "pérdida auditiva", "tinnitus", "acúfenos", "otitis", "infección de oído", "vértigo")
+            'show_on_pages' => get_option('wc_ai_homeopathic_chat_pages', false),
+            'enable_learning' => get_option('wc_ai_homeopathic_chat_learning', true)
         );
     }
     
@@ -83,9 +89,27 @@ class WC_AI_Homeopathic_Chat {
         add_action('wp_footer', array($this, 'display_floating_chat'));
         add_action('wp_ajax_wc_ai_homeopathic_chat_send_message', array($this, 'ajax_send_message'));
         add_action('wp_ajax_nopriv_wc_ai_homeopathic_chat_send_message', array($this, 'ajax_send_message'));
+        
+        // Hooks para aprendizaje automático
+        add_action('wc_ai_chat_auto_approve_suggestions', array($this, 'auto_approve_suggestions_cron'));
+        add_action('wc_ai_chat_analyze_conversations', array($this, 'analyze_recent_conversations'));
+        
         add_action('admin_init', array($this, 'register_settings'));
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_filter('plugin_action_links_' . plugin_basename(__FILE__), array($this, 'add_plugin_action_links'));
+    }
+    
+    /**
+     * Programa tareas de aprendizaje automático
+     */
+    private function schedule_learning_tasks() {
+        if (!wp_next_scheduled('wc_ai_chat_auto_approve_suggestions')) {
+            wp_schedule_event(time(), 'twicedaily', 'wc_ai_chat_auto_approve_suggestions');
+        }
+        
+        if (!wp_next_scheduled('wc_ai_chat_analyze_conversations')) {
+            wp_schedule_event(time(), 'daily', 'wc_ai_chat_analyze_conversations');
+        }
     }
     
     /**
@@ -107,20 +131,20 @@ class WC_AI_Homeopathic_Chat {
                 ));
             }
             
-            // Analizar síntomas
-            $analysis = $this->analizar_sintomas_mejorado($message);
+            // Analizar síntomas usando la clase de soluciones
+            $analysis = $this->solutions_methods->analizar_sintomas_mejorado($message);
             
             // Detectar productos mencionados
             $productos_mencionados = $this->detectar_productos_en_consulta($message);
             
-            // DETECCIÓN MEJORADA: Usar el nuevo método con análisis de contexto
-            $mostrar_solo_productos_mencionados = $this->debe_mostrar_solo_productos_mencionados($productos_mencionados, $message);
-            $info_productos_mencionados = $this->get_info_productos_mencionados($productos_mencionados);
+            // DETECCIÓN MEJORADA: Usar el método de prompt build
+            $mostrar_solo_productos_mencionados = $this->prompt_build->debe_mostrar_solo_productos_mencionados($productos_mencionados, $message);
+            $info_productos_mencionados = $this->prompt_build->get_info_productos_mencionados($productos_mencionados);
             
-            // BÚSQUEDA MEJORADA
+            // BÚSQUEDA MEJORADA usando la clase de soluciones
             $relevant_products = "";
             if (!$mostrar_solo_productos_mencionados) {
-                $relevant_products = $this->get_relevant_products_by_categories_mejorado(
+                $relevant_products = $this->solutions_methods->get_relevant_products_by_categories_mejorado(
                     $analysis['categorias_detectadas'], 
                     $analysis['padecimientos_encontrados']
                 );
@@ -134,8 +158,16 @@ class WC_AI_Homeopathic_Chat {
                 error_log("WC AI Chat Debug - Producto " . ($index + 1) . ": " . $producto['product']->get_name() . " - Confianza: " . $producto['confianza']);
             }
             
-            // Construir prompt
-            $prompt = $this->build_prompt_mejorado($message, $analysis, $relevant_products, $info_productos_mencionados, $productos_mencionados, $mostrar_solo_productos_mencionados);
+            // Construir prompt usando la clase de prompt build
+            $prompt = $this->prompt_build->build_prompt_mejorado(
+                $message, 
+                $analysis, 
+                $relevant_products, 
+                $info_productos_mencionados, 
+                $productos_mencionados, 
+                $mostrar_solo_productos_mencionados
+            );
+            
             $response = $this->call_deepseek_api($prompt);
             
             if (is_wp_error($response)) {
@@ -152,6 +184,11 @@ class WC_AI_Homeopathic_Chat {
             $sanitized_response = $this->sanitize_api_response($response);
             $this->cache_response($cache_key, $sanitized_response);
             
+            // Aprendizaje automático: analizar la conversación si está habilitado
+            if ($this->settings['enable_learning']) {
+                $this->learning_engine->analyze_conversation($message, $sanitized_response);
+            }
+            
             wp_send_json_success(array(
                 'response' => $sanitized_response,
                 'from_cache' => false,
@@ -166,274 +203,26 @@ class WC_AI_Homeopathic_Chat {
     }
     
     /**
-     * Determina si debe mostrar solo los productos mencionados - VERSIÓN MEJORADA 2.5.3
+     * Aprobar sugerencias automáticamente (cron job)
      */
-    private function debe_mostrar_solo_productos_mencionados($productos_mencionados, $message) {
-        if (empty($productos_mencionados)) {
-            return false;
+    public function auto_approve_suggestions_cron() {
+        if ($this->settings['enable_learning']) {
+            $approved_count = $this->learning_engine->auto_approve_high_confidence_suggestions();
+            error_log("WC AI Chat Learning: Auto-approved {$approved_count} suggestions.");
         }
-        
-        // Si hay al menos un producto con alta confianza (>0.9), mostrar solo esos
-        foreach ($productos_mencionados as $producto) {
-            if ($producto['confianza'] >= 0.9) {
-                error_log("WC AI Chat Debug - Producto con alta confianza detectado: " . $producto['product']->get_name() . " - Confianza: " . $producto['confianza']);
-                return true;
-            }
-        }
-        
-        // ANÁLISIS MEJORADO: Verificar si el usuario realmente está preguntando por productos específicos
-        $message_lower = strtolower($message);
-        $palabras_especificas = array(
-            'comprar', 'precio de', 'cuesta', 'vale', 'cotizar', 'cotización',
-            'quiero', 'deseo', 'necesito', 'busco', 'estoy interesado en',
-            'tienen', 'venden', 'disponible', 'disponen', 'cuánto', 'qué precio'
-        );
-        
-        $es_consulta_especifica = false;
-        foreach ($palabras_especificas as $palabra) {
-            if (strpos($message_lower, $palabra) !== false) {
-                $es_consulta_especifica = true;
-                error_log("WC AI Chat Debug - Palabra específica detectada: " . $palabra);
-                break;
-            }
-        }
-        
-        // Si el usuario está preguntando específicamente por productos y tenemos detecciones
-        if ($es_consulta_especifica && !empty($productos_mencionados)) {
-            error_log("WC AI Chat Debug - Consulta específica detectada, mostrando solo productos mencionados");
-            return true;
-        }
-        
-        return false;
     }
     
     /**
-     * Build prompt mejorado - VERSIÓN 2.5.3
-     * CON INSTRUCCIONES MÁS CLARAS SOBRE CUÁNDO MOSTRAR SOLO PRODUCTOS ESPECÍFICOS
+     * Analizar conversaciones recientes (cron job)
      */
-    private function build_prompt_mejorado($message, $analysis, $relevant_products, $info_productos_mencionados = "", $productos_mencionados = array(), $mostrar_solo_productos_mencionados = false) {
-        $categorias_text = !empty($analysis['categorias_detectadas']) ? 
-            "CATEGORÍAS DETECTADAS: " . implode(', ', $analysis['categorias_detectadas']) : 
-            "No se detectaron categorías específicas.";
-        
-        $padecimientos_text = !empty($analysis['padecimientos_encontrados']) ? 
-            "PADECIMIENTOS IDENTIFICADOS: " . implode(', ', array_column(array_slice($analysis['padecimientos_encontrados'], 0, 8), 'padecimiento')) : 
-            "No se identificaron padecimientos específicos.";
-        
-        $hay_productos_mencionados = !empty($productos_mencionados);
-        $instrucciones_especiales = "";
-        
-        if ($hay_productos_mencionados) {
-            $nombres_productos = array();
-            foreach ($productos_mencionados as $item) {
-                $nombres_productos[] = $item['product']->get_name();
-            }
-            
-            $instrucciones_especiales = "\n\n🚨 INFORMACIÓN ESPECIAL - PRODUCTOS MENCIONADOS:\nEl usuario ha mencionado o mostrado interés en estos productos específicos: " . implode(', ', $nombres_productos);
-            
-            if ($mostrar_solo_productos_mencionados) {
-                $instrucciones_especiales .= "\n\n🎯 INSTRUCCIÓN CRÍTICA: El usuario pregunta específicamente por estos productos. DEBES:\n" .
-                    "1. PROPORCIONAR INFORMACIÓN DETALLADA SOLO de los productos mencionados\n" .
-                    "2. INCLUIR OBLIGATORIAMENTE: precio, SKU, disponibilidad, descripción breve\n" .
-                    "3. NO RECOMENDAR otros productos adicionales\n" .
-                    "4. Si el producto no está disponible, ser honesto y sugerir consultar alternativas con un profesional\n" .
-                    "5. SIEMPRE incluir el precio exacto y el código SKU en la respuesta\n" .
-                    "6. LIMITAR la respuesta a máximo 3-4 productos principales";
-            } else {
-                $instrucciones_especiales .= "\n\n💡 INSTRUCCIONES ADICIONALES:\n" .
-                    "1. Proporciona información sobre los productos mencionados INCLUYENDO PRECIO Y SKU\n" .
-                    "2. También puedes sugerir productos complementarios si son relevantes para los síntomas\n" .
-                    "3. Relaciona los productos mencionados con los síntomas descritos\n" .
-                    "4. NO OLVIDES incluir precio y SKU de todos los productos mencionados\n" .
-                    "5. Prioriza los productos más relevantes para los síntomas del usuario\n" .
-                    "6. LIMITA la respuesta a 3-4 productos principales para no abrumar al usuario";
-            }
-        }
-        
-        $prompt = "Eres un homeópata experto. Analiza la consulta y proporciona información útil sobre productos homeopáticos.";
-
-        if ($hay_productos_mencionados) {
-            $prompt .= "\n\n{$info_productos_mencionados}";
-        }
-
-        $prompt .= "\n\nCONSULTA DEL PACIENTE:\n\"{$message}\"\n\nANÁLISIS DE SÍNTOMAS:\n{$analysis['resumen_analisis']}\n{$categorias_text}\n{$padecimientos_text}";
-        
-        // Solo incluir productos recomendados si no estamos mostrando solo productos mencionados
-        if (!$mostrar_solo_productos_mencionados && !empty($relevant_products)) {
-            $prompt .= "\n\nINVENTARIO DE PRODUCTOS RECOMENDADOS:\n{$relevant_products}";
-        }
-        
-        $prompt .= "{$instrucciones_especiales}\n\nINSTRUCCIONES GENERALES CRÍTICAS:\n" .
-            "1. Proporciona información CLARA y DIRECTA\n" .
-            "2. Usa formato legible con saltos de línea\n" .
-            "3. INCLUYE OBLIGATORIAMENTE información específica de productos: PRECIO, SKU, disponibilidad\n" .
-            "4. SIEMPRE menciona el precio y SKU cuando hables de un producto específico\n" .
-            "5. Sé empático pero profesional\n" .
-            "6. Siempre aclara: \"Consulta con un profesional de la salud para diagnóstico preciso\"\n" .
-            "7. " . ($mostrar_solo_productos_mencionados ? 
-                "RESPONDE EXCLUSIVAMENTE sobre los productos que el usuario mencionó INCLUYENDO PRECIO Y SKU - NO RECOMIENDES OTROS PRODUCTOS" : 
-                "Si el usuario solo describe síntomas, recomienda productos relevantes basados en el análisis (máximo 3-4 productos)") . 
-            "\n\nResponde en español de manera natural y práctica. Usa formato claro y fácil de leer.";
-
-        return $prompt;
-    }
-    
-    /**
-     * Búsqueda mejorada de productos por categorías - VERSIÓN 2.5.3
-     */
-    private function get_relevant_products_by_categories_mejorado($categorias, $padecimientos_encontrados) {
-        $all_products = array();
-        
-        // ESTRATEGIA 1: Búsqueda por TAGS (prioridad máxima)
-        $products_by_tags = $this->get_products_by_tags($categorias);
-        $all_products = array_merge($all_products, $products_by_tags);
-        
-        // ESTRATEGIA 2: Si no se encontraron productos por TAGS, buscar por categorías WooCommerce
-        if (empty($all_products)) {
-            $products_by_categories = $this->get_products_by_wc_categories($categorias);
-            $all_products = array_merge($all_products, $products_by_categories);
-        }
-        
-        // ESTRATEGIA 3: Búsqueda por nombres de padecimientos en títulos/descripciones
-        if (empty($all_products)) {
-            $products_by_symptoms = $this->buscar_productos_por_sintomas($padecimientos_encontrados);
-            $all_products = array_merge($all_products, $products_by_symptoms);
-        }
-        
-        // ESTRATEGIA 4: Búsqueda ampliada en contenido de productos
-        if (empty($all_products)) {
-            $products_by_content = $this->buscar_en_contenido_productos($padecimientos_encontrados);
-            $all_products = array_merge($all_products, $products_by_content);
-        }
-        
-        // ESTRATEGIA 5: Productos polivalentes como último recurso
-        if (empty($all_products)) {
-            $all_products = $this->get_polivalent_products();
-        }
-        
-        // Limitar y formatear resultados
-        return $this->format_products_info(array_slice($all_products, 0, 8)); // Aumentado a 8 para dar más opciones a la IA
-    }
-    
-    /**
-     * Búsqueda de productos por síntomas en títulos y descripciones
-     */
-    private function buscar_productos_por_sintomas($padecimientos_encontrados) {
-        if (empty($padecimientos_encontrados)) {
-            return array();
-        }
-        
-        $found_products = array();
-        $all_products = $this->get_all_store_products();
-        
-        foreach ($all_products as $product) {
-            $product_text = $this->normalizar_texto(
-                $product->get_name() . ' ' . 
-                $product->get_description() . ' ' . 
-                $product->get_short_description()
-            );
-            
-            foreach ($padecimientos_encontrados as $padecimiento_info) {
-                $padecimiento = $this->normalizar_texto($padecimiento_info['padecimiento']);
-                
-                // Buscar coincidencia en el texto del producto
-                if (strpos($product_text, $padecimiento) !== false) {
-                    $found_products[$product->get_id()] = $product;
-                    break;
-                }
-                
-                // Buscar sinónimos
-                $sinonimos = $this->get_sinonimos_padecimiento($padecimiento_info['padecimiento']);
-                foreach ($sinonimos as $sinonimo) {
-                    $sinonimo_normalized = $this->normalizar_texto($sinonimo);
-                    if (strpos($product_text, $sinonimo_normalized) !== false) {
-                        $found_products[$product->get_id()] = $product;
-                        break 2;
-                    }
-                }
-            }
-        }
-        
-        return array_values($found_products);
-    }
-    
-    /**
-     * Búsqueda ampliada en contenido de productos
-     */
-    private function buscar_en_contenido_productos($padecimientos_encontrados) {
-        if (empty($padecimientos_encontrados)) {
-            return array();
-        }
-        
-        $found_products = array();
-        $all_products = $this->get_all_store_products();
-        
-        // Mapeo de padecimientos a términos de búsqueda ampliados
-        $terminos_ampliados = $this->get_terminos_ampliados_busqueda($padecimientos_encontrados);
-        
-        foreach ($all_products as $product) {
-            $score = 0;
-            $product_text = $this->normalizar_texto(
-                $product->get_name() . ' ' . 
-                $product->get_description() . ' ' . 
-                $product->get_short_description() . ' ' .
-                implode(' ', wc_get_product_tag_list($product->get_id())) . ' ' .
-                implode(' ', wc_get_product_category_list($product->get_id()))
-            );
-            
-            foreach ($terminos_ampliados as $termino) {
-                if (strpos($product_text, $termino) !== false) {
-                    $score++;
-                }
-            }
-            
-            // Si tiene al menos 2 coincidencias, incluir el producto
-            if ($score >= 2) {
-                $found_products[$product->get_id()] = $product;
-            }
-        }
-        
-        return array_values($found_products);
-    }
-    
-    /**
-     * Términos ampliados para búsqueda más flexible
-     */
-    private function get_terminos_ampliados_busqueda($padecimientos_encontrados) {
-        $terminos = array();
-        
-        $mapeo_terminos = array(
-            'dolor de cabeza' => array('cefalea', 'migraña', 'jaqueca', 'dolor cabeza', 'cabezas'),
-            'estrés' => array('estres', 'tension', 'nervios', 'ansiedad', 'relajante', 'calmante'),
-            'insomnio' => array('insomnio', 'sueño', 'dormir', 'descanso', 'relajación'),
-            'ansiedad' => array('ansiedad', 'nerviosismo', 'inquietud', 'calmante', 'relajante'),
-            'gripe' => array('gripe', 'resfriado', 'congestión', 'tos', 'fiebre', 'catarro', 'infección'),
-            'digestión' => array('digestión', 'digestivo', 'estómago', 'gastritis', 'acidez', 'reflujo'),
-            'dolor muscular' => array('muscular', 'dolor muscular', 'contractura', 'calambre', 'inflamación'),
-            'artritis' => array('artritis', 'articulación', 'dolor articular', 'inflamación articular'),
-            'fatiga' => array('fatiga', 'cansancio', 'agotamiento', 'energía', 'vitalidad'),
-            'depresión' => array('depresión', 'tristeza', 'ánimo', 'estado de ánimo', 'bienestar emocional')
-        );
-        
-        foreach ($padecimientos_encontrados as $padecimiento_info) {
-            $padecimiento = $this->normalizar_texto($padecimiento_info['padecimiento']);
-            $terminos[] = $padecimiento;
-            
-            // Añadir términos relacionados
-            if (isset($mapeo_terminos[$padecimiento_info['padecimiento']])) {
-                $terminos = array_merge($terminos, $mapeo_terminos[$padecimiento_info['padecimiento']]);
-            }
-            
-            // Añadir sinónimos
-            $sinonimos = $this->get_sinonimos_padecimiento($padecimiento_info['padecimiento']);
-            $terminos = array_merge($terminos, $sinonimos);
-        }
-        
-        return array_unique(array_map(array($this, 'normalizar_texto'), $terminos));
+    public function analyze_recent_conversations() {
+        // Esta función puede usarse para análisis batch de conversaciones
+        // Por ejemplo, procesar logs de conversaciones del día anterior
+        error_log("WC AI Chat Learning: Analyzing recent conversations.");
     }
     
     // =========================================================================
-    // SISTEMA MEJORADO DE DETECCIÓN DE PRODUCTOS
+    // SISTEMA MEJORADO DE DETECCIÓN DE PRODUCTOS (mantenido en clase principal)
     // =========================================================================
     
     /**
@@ -441,14 +230,14 @@ class WC_AI_Homeopathic_Chat {
      */
     private function detectar_productos_en_consulta($message) {
         $productos_detectados = array();
-        $message_normalized = $this->normalizar_texto($message);
+        $message_normalized = $this->solutions_methods->normalizar_texto($message);
         
         // Obtener todos los productos de la tienda (con cache)
         $all_products = $this->get_all_store_products();
         
         foreach ($all_products as $product) {
-            $product_name = $this->normalizar_texto($product->get_name());
-            $product_sku = $this->normalizar_texto($product->get_sku());
+            $product_name = $this->solutions_methods->normalizar_texto($product->get_name());
+            $product_sku = $this->solutions_methods->normalizar_texto($product->get_sku());
             
             // ESTRATEGIA 1: Búsqueda por nombre exacto (máxima prioridad)
             if ($this->buscar_coincidencia_exacta($message_normalized, $product_name)) {
@@ -715,7 +504,7 @@ class WC_AI_Homeopathic_Chat {
         $sinonimos = $this->get_sinonimos_producto($nombre_producto);
         
         foreach ($sinonimos as $sinonimo) {
-            $sinonimo_normalized = $this->normalizar_texto($sinonimo);
+            $sinonimo_normalized = $this->solutions_methods->normalizar_texto($sinonimo);
             
             if (strpos($texto, $sinonimo_normalized) !== false) {
                 $resultado['encontrado'] = true;
@@ -783,8 +572,8 @@ class WC_AI_Homeopathic_Chat {
         $encontrados = array();
         
         foreach ($productos as $product) {
-            $descripcion = $this->normalizar_texto($product->get_description());
-            $titulo = $this->normalizar_texto($product->get_name());
+            $descripcion = $this->solutions_methods->normalizar_texto($product->get_description());
+            $titulo = $this->solutions_methods->normalizar_texto($product->get_name());
             
             // Buscar palabras clave del texto en la descripción
             $palabras_busqueda = array_filter(explode(' ', $texto), function($palabra) {
@@ -839,542 +628,7 @@ class WC_AI_Homeopathic_Chat {
         return $products;
     }
     
-    /**
-     * Obtiene información de productos polivalentes formateada
-     */
-    private function get_polivalent_products_info() {
-        $products = $this->get_polivalent_products();
-        return $this->format_products_info($products);
-    }
-    
-    /**
-     * Obtiene información detallada de productos mencionados - MEJORADA
-     * INCLUYE PRECIO Y SKU OBLIGATORIAMENTE
-     */
-    private function get_info_productos_mencionados($productos_mencionados) {
-        if (empty($productos_mencionados)) {
-            return "";
-        }
-        
-        $info = "🎯 PRODUCTOS ESPECÍFICOS MENCIONADOS EN LA CONSULTA:\n\n";
-        
-        foreach ($productos_mencionados as $item) {
-            $product = $item['product'];
-            $info .= $this->format_detailed_product_info($product, $item) . "\n---\n";
-        }
-        
-        $info .= "\n💡 INFORMACIÓN IMPORTANTE:\n- Precios en " . get_woocommerce_currency_symbol() . "\n- Disponibilidad sujeta a stock\n- SKU único para cada producto\n- INCLUYE PRECIO Y SKU EN TODAS LAS RESPUESTAS";
-        return $info;
-    }
-    
-    /**
-     * Formatea información detallada del producto - MEJORADA
-     * INCLUYE PRECIO Y SKU DE FORMA DESTACADA
-     */
-    private function format_detailed_product_info($product, $detection_info = null) {
-        $title = $product->get_name();
-        $sku = $product->get_sku() ?: 'No disponible';
-        $price = $product->get_price_html();
-        $regular_price = $product->get_regular_price();
-        $sale_price = $product->get_sale_price();
-        $short_description = wp_strip_all_tags($product->get_short_description() ?: '');
-        $description = wp_strip_all_tags($product->get_description() ?: '');
-        $stock_status = $product->get_stock_status();
-        $stock_quantity = $product->get_stock_quantity();
-        $product_url = get_permalink($product->get_id());
-        
-        // Información de stock mejorada
-        if ($stock_status === 'instock') {
-            $stock_text = $stock_quantity ? "✅ En stock ({$stock_quantity} unidades)" : "✅ Disponible";
-        } else {
-            $stock_text = "⏳ Consultar disponibilidad";
-        }
-        
-        // Información de precio detallada - DESTACADA
-        $price_info = "💰 PRECIO: {$price}";
-        if ($sale_price && $regular_price != $sale_price) {
-            $descuento = round((($regular_price - $sale_price) / $regular_price) * 100);
-            $price_info .= " 🎁 {$descuento}% OFF";
-        }
-        
-        // Información de detección
-        $detection_text = "";
-        if ($detection_info) {
-            $confianza_porcentaje = round($detection_info['confianza'] * 100);
-            $detection_text = "🔍 Detectado por: {$detection_info['tipo_coincidencia']} ({$confianza_porcentaje}% confianza)\n";
-        }
-        
-        // Descripción breve (limitada)
-        $desc_text = "";
-        if ($short_description) {
-            $desc_clean = preg_replace('/\s+/', ' ', $short_description);
-            if (strlen($desc_clean) > 120) {
-                $desc_clean = substr($desc_clean, 0, 117) . '...';
-            }
-            $desc_text = "📝 {$desc_clean}\n";
-        }
-        
-        // Construir información detallada con PRECIO Y SKU DESTACADOS
-        $info = "🟢 PRODUCTO: {$title}\n";
-        $info .= $detection_text;
-        $info .= "🆔 SKU: {$sku}\n"; // SKU DESTACADO
-        $info .= "{$price_info}\n"; // PRECIO DESTACADO
-        $info .= "📊 Stock: {$stock_text}\n";
-        $info .= $desc_text;
-        $info .= "🔗 Enlace: {$product_url}";
-        
-        return $info;
-    }
-    
-    // MÉTODOS DE BÚSQUEA POR TAGS Y CATEGORÍAS
-    private function get_products_by_tags($categorias) {
-        $found_products = array();
-        
-        foreach ($categorias as $categoria) {
-            $tag_terms = $this->get_tag_terms_for_category($categoria);
-            
-            foreach ($tag_terms as $tag_term) {
-                $products = $this->search_products_by_tag($tag_term);
-                
-                foreach ($products as $product) {
-                    if ($product && $product->is_visible()) {
-                        $found_products[$product->get_id()] = $product;
-                    }
-                }
-            }
-        }
-        
-        return array_values($found_products);
-    }
-    
-    private function get_tag_terms_for_category($categoria) {
-        $tag_mapping = array(
-            "infecciosas" => array('infeccioso', 'infeccion', 'gripe', 'resfriado', 'viral', 'bacteriano'),
-            "cardiovasculares" => array('cardiovascular', 'corazon', 'corazón', 'presion', 'hipertension'),
-            "respiratorias" => array('respiratorio', 'asma', 'alergia', 'rinitis', 'sinusitis', 'tos'),
-            "digestivas" => array('digestivo', 'gastritis', 'ulcera', 'reflujo', 'colitis', 'estomago'),
-            "neurologicas" => array('neurologico', 'migraña', 'dolor cabeza', 'cefalea', 'neuralgia'),
-            "musculoesqueléticas" => array('muscular', 'oseo', 'artritis', 'artrosis', 'dolor articular'),
-            "endocrinas" => array('endocrino', 'tiroides', 'diabetes', 'metabolismo'),
-            "mentales" => array('mental', 'estres', 'ansiedad', 'depresion', 'insomnio', 'emocional'),
-            "cancer" => array('cancer', 'oncology', 'tumor', 'neoplasia'),
-            "sintomas_generales" => array('sintoma general', 'fatiga', 'debilidad', 'malestar'),
-            "sintomas_especificos" => array('dolor', 'fiebre', 'nauseas', 'vomitos'),
-            "dermatologicas" => array('dermatologico', 'piel', 'acne', 'eczema', 'psoriasis'),
-            "oculares" => array('ocular', 'ojo', 'vision', 'cataratas'),
-            "auditivas" => array('auditivo', 'oido', 'sordera', 'tinnitus')
-        );
-        
-        return isset($tag_mapping[$categoria]) ? $tag_mapping[$categoria] : array($categoria);
-    }
-    
-    private function search_products_by_tag($tag_name) {
-        $args = array(
-            'post_type' => 'product',
-            'posts_per_page' => 20,
-            'post_status' => 'publish',
-            'tax_query' => array(
-                array(
-                    'taxonomy' => 'product_tag',
-                    'field' => 'name',
-                    'terms' => $tag_name,
-                    'operator' => 'LIKE'
-                )
-            )
-        );
-        
-        $products = array();
-        $query = new WP_Query($args);
-        
-        if ($query->have_posts()) {
-            while ($query->have_posts()) {
-                $query->the_post();
-                $product = wc_get_product(get_the_ID());
-                if ($product) {
-                    $products[] = $product;
-                }
-            }
-        }
-        
-        wp_reset_postdata();
-        return $products;
-    }
-    
-    private function get_products_by_wc_categories($categorias) {
-        $found_products = array();
-        
-        foreach ($categorias as $categoria) {
-            $category_terms = $this->get_wc_category_terms_for_category($categoria);
-            
-            foreach ($category_terms as $category_term) {
-                $products = $this->search_products_by_wc_category($category_term);
-                
-                foreach ($products as $product) {
-                    if ($product && $product->is_visible()) {
-                        $found_products[$product->get_id()] = $product;
-                    }
-                }
-            }
-        }
-        
-        return array_values($found_products);
-    }
-    
-    private function get_wc_category_terms_for_category($categoria) {
-        $category_mapping = array(
-            "infecciosas" => array('infecciosas', 'enfermedades-infecciosas'),
-            "cardiovasculares" => array('cardiovasculares', 'corazon'),
-            "respiratorias" => array('respiratorias', 'vias-respiratorias'),
-            "digestivas" => array('digestivas', 'sistema-digestivo'),
-            "neurologicas" => array('neurologicas', 'sistema-nervioso'),
-            "mentales" => array('salud-mental', 'emocional'),
-            "musculoesqueléticas" => array('musculoesqueleticas', 'muscular', 'huesos'),
-            "endocrinas" => array('endocrinas', 'metabolismo'),
-            "cancer" => array('cancer', 'oncology'),
-            "dermatologicas" => array('dermatologicas', 'piel'),
-            "oculares" => array('oculares', 'ojos'),
-            "auditivas" => array('auditivas', 'oidos')
-        );
-        
-        return isset($category_mapping[$categoria]) ? $category_mapping[$categoria] : array($categoria);
-    }
-    
-    private function search_products_by_wc_category($category_name) {
-        $args = array(
-            'post_type' => 'product',
-            'posts_per_page' => 20,
-            'post_status' => 'publish',
-            'tax_query' => array(
-                array(
-                    'taxonomy' => 'product_cat',
-                    'field' => 'name', 
-                    'terms' => $category_name,
-                    'operator' => 'LIKE'
-                )
-            )
-        );
-        
-        $products = array();
-        $query = new WP_Query($args);
-        
-        if ($query->have_posts()) {
-            while ($query->have_posts()) {
-                $query->the_post();
-                $product = wc_get_product(get_the_ID());
-                if ($product) {
-                    $products[] = $product;
-                }
-            }
-        }
-        
-        wp_reset_postdata();
-        return $products;
-    }
-    
-    private function get_polivalent_products() {
-        $args = array(
-            'post_type' => 'product',
-            'posts_per_page' => 10,
-            'post_status' => 'publish',
-            'tax_query' => array(
-                array(
-                    'taxonomy' => 'product_tag',
-                    'field' => 'name',
-                    'terms' => array('polivalente', 'general', 'multiusos'),
-                    'operator' => 'IN'
-                )
-            )
-        );
-        
-        $products = array();
-        $query = new WP_Query($args);
-        
-        if ($query->have_posts()) {
-            while ($query->have_posts()) {
-                $query->the_post();
-                $product = wc_get_product(get_the_ID());
-                if ($product) {
-                    $products[] = $product;
-                }
-            }
-        }
-        
-        wp_reset_postdata();
-        return $products;
-    }
-    
-    private function format_products_info($products) {
-        if (empty($products)) {
-            return "No hay productos específicos para recomendar basados en el análisis.";
-        }
-        
-        $products_info = "PRODUCTOS HOMEOPÁTICOS RECOMENDADOS:\n\n";
-        $found_products = 0;
-        
-        foreach ($products as $product) {
-            $products_info .= $this->format_product_info_basico($product) . "\n---\n";
-            $found_products++;
-        }
-        
-        $products_info .= "\n💊 Total de productos encontrados: {$found_products}";
-        return $products_info;
-    }
-    
-    private function format_product_info_basico($product) {
-        $title = $product->get_name();
-        $sku = $product->get_sku() ?: 'N/A';
-        $price = $product->get_price_html();
-        $short_description = wp_strip_all_tags($product->get_short_description() ?: '');
-        $stock_status = $product->get_stock_status();
-        $stock_text = $stock_status === 'instock' ? '✅ Disponible' : '⏳ Consultar stock';
-        
-        if (strlen($short_description) > 100) {
-            $short_description = substr($short_description, 0, 97) . '...';
-        }
-        
-        return "📦 {$title}\n🆔 SKU: {$sku}\n💰 {$price}\n📊 {$stock_text}\n📝 {$short_description}";
-    }
-    
-    // MÉTODOS DE NORMALIZACIÓN Y ANÁLISIS
-    private function normalizar_texto($texto) {
-        if (!is_string($texto)) {
-            return '';
-        }
-        
-        $texto = mb_strtolower(trim($texto), 'UTF-8');
-        $texto = $this->remover_acentos($texto);
-        $texto = $this->corregir_errores_comunes($texto);
-        $texto = preg_replace('/[^a-z0-9\s]/', '', $texto);
-        $texto = preg_replace('/\s+/', ' ', $texto);
-        
-        return trim($texto);
-    }
-    
-    private function remover_acentos($texto) {
-        $acentos = array(
-            'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u',
-            'à' => 'a', 'è' => 'e', 'ì' => 'i', 'ò' => 'o', 'ù' => 'u',
-            'ä' => 'a', 'ë' => 'e', 'ï' => 'i', 'ö' => 'o', 'ü' => 'u',
-            'â' => 'a', 'ê' => 'e', 'î' => 'i', 'ô' => 'o', 'û' => 'u',
-            'ã' => 'a', 'ñ' => 'n', 'ç' => 'c',
-            'Á' => 'a', 'É' => 'e', 'Í' => 'i', 'Ó' => 'o', 'Ú' => 'u',
-            'À' => 'a', 'È' => 'e', 'Ì' => 'i', 'Ò' => 'o', 'Ù' => 'u',
-            'Ä' => 'a', 'Ë' => 'e', 'Ï' => 'i', 'Ö' => 'o', 'Ü' => 'u',
-            'Â' => 'a', 'Ê' => 'e', 'Î' => 'i', 'Ô' => 'o', 'Û' => 'u',
-            'Ã' => 'a', 'Ñ' => 'n', 'Ç' => 'c'
-        );
-        
-        return strtr($texto, $acentos);
-    }
-    
-    private function corregir_errores_comunes($texto) {
-        $errores_comunes = array(
-            'canser' => 'cancer', 'cansér' => 'cancer', 'kancer' => 'cancer', 'kanser' => 'cancer',
-            'dolór' => 'dolor', 'dolores' => 'dolor', 'cabeza' => 'cabeza', 'kabeza' => 'cabeza',
-            'estres' => 'estres', 'estre s' => 'estres', 'estrés' => 'estres',
-            'insomnio' => 'insomnio', 'insomnio' => 'insomnio', 'insonio' => 'insomnio',
-            'ansiedad' => 'ansiedad', 'ansieda' => 'ansiedad', 'ansiedá' => 'ansiedad',
-            'digestion' => 'digestion', 'digestión' => 'digestion',
-            'problema' => 'problema', 'enfermeda' => 'enfermedad', 'sintoma' => 'sintoma'
-        );
-        
-        return strtr($texto, $errores_comunes);
-    }
-    
-    private function analizar_sintomas_mejorado($message) {
-        $message_normalized = $this->normalizar_texto($message);
-        $categorias_detectadas = array();
-        $padecimientos_encontrados = array();
-        $keywords_encontradas = array();
-        $confianza_total = 0;
-        
-        foreach ($this->padecimientos_humanos as $categoria => $padecimientos) {
-            foreach ($padecimientos as $padecimiento) {
-                $padecimiento_normalized = $this->normalizar_texto($padecimiento);
-                
-                $resultado_busqueda = $this->buscar_coincidencia_avanzada(
-                    $message_normalized, 
-                    $padecimiento_normalized, 
-                    $padecimiento
-                );
-                
-                if ($resultado_busqueda['encontrado']) {
-                    if (!in_array($categoria, $categorias_detectadas)) {
-                        $categorias_detectadas[] = $categoria;
-                    }
-                    
-                    $padecimientos_encontrados[] = array(
-                        'padecimiento' => $padecimiento,
-                        'padecimiento_normalized' => $padecimiento_normalized,
-                        'categoria' => $categoria,
-                        'confianza' => $resultado_busqueda['confianza'],
-                        'tipo_coincidencia' => $resultado_busqueda['tipo']
-                    );
-                    
-                    $keywords_encontradas[] = $padecimiento;
-                    $confianza_total += $resultado_busqueda['confianza'];
-                }
-            }
-        }
-        
-        usort($padecimientos_encontrados, function($a, $b) {
-            return $b['confianza'] <=> $a['confianza'];
-        });
-        
-        return array(
-            'categorias_detectadas' => $categorias_detectadas,
-            'padecimientos_encontrados' => $padecimientos_encontrados,
-            'keywords_encontradas' => $keywords_encontradas,
-            'confianza_promedio' => count($padecimientos_encontrados) > 0 ? 
-                                   $confianza_total / count($padecimientos_encontrados) : 0,
-            'resumen_analisis' => $this->generar_resumen_analisis_mejorado($categorias_detectadas, $padecimientos_encontrados)
-        );
-    }
-    
-    private function buscar_coincidencia_avanzada($texto, $busqueda, $padecimiento_original) {
-        $resultado = array('encontrado' => false, 'confianza' => 0.0, 'tipo' => 'ninguna');
-        
-        if ($texto === $busqueda || strpos($texto, $busqueda) !== false) {
-            $resultado['encontrado'] = true; $resultado['confianza'] = 1.0; $resultado['tipo'] = 'exacta';
-            return $resultado;
-        }
-        
-        if (strpos($busqueda, ' ') !== false) {
-            $confianza = $this->coincidencia_palabras_multiples($texto, $busqueda);
-            if ($confianza >= 0.6) {
-                $resultado['encontrado'] = true; $resultado['confianza'] = $confianza; $resultado['tipo'] = 'parcial_multiple';
-                return $resultado;
-            }
-        }
-        
-        $confianza_sinonimos = $this->buscar_sinonimos($texto, $busqueda, $padecimiento_original);
-        if ($confianza_sinonimos > 0) {
-            $resultado['encontrado'] = true; $resultado['confianza'] = $confianza_sinonimos; $resultado['tipo'] = 'sinonimo';
-            return $resultado;
-        }
-        
-        $confianza_fonetica = $this->busqueda_fonetica($texto, $busqueda);
-        if ($confianza_fonetica >= 0.8) {
-            $resultado['encontrado'] = true; $resultado['confianza'] = $confianza_fonetica; $resultado['tipo'] = 'fonetica';
-            return $resultado;
-        }
-        
-        $confianza_subcadena = $this->busqueda_subcadena_tolerante($texto, $busqueda);
-        if ($confianza_subcadena >= 0.7) {
-            $resultado['encontrado'] = true; $resultado['confianza'] = $confianza_subcadena; $resultado['tipo'] = 'subcadena';
-            return $resultado;
-        }
-        
-        return $resultado;
-    }
-    
-    private function coincidencia_palabras_multiples($texto, $busqueda) {
-        $palabras_busqueda = explode(' ', $busqueda);
-        $palabras_texto = explode(' ', $texto);
-        
-        $coincidencias = 0;
-        $total_palabras = count($palabras_busqueda);
-        
-        foreach ($palabras_busqueda as $palabra) {
-            if (strlen($palabra) <= 2) continue;
-            
-            foreach ($palabras_texto as $palabra_texto) {
-                if ($this->es_coincidencia_similar($palabra, $palabra_texto)) {
-                    $coincidencias++; break;
-                }
-            }
-        }
-        
-        return $coincidencias / $total_palabras;
-    }
-    
-    private function buscar_sinonimos($texto, $busqueda, $padecimiento_original) {
-        $sinonimos = $this->get_sinonimos_padecimiento($padecimiento_original);
-        
-        foreach ($sinonimos as $sinonimo) {
-            $sinonimo_normalized = $this->normalizar_texto($sinonimo);
-            if (strpos($texto, $sinonimo_normalized) !== false) {
-                return 0.9;
-            }
-        }
-        
-        return 0;
-    }
-    
-    private function busqueda_fonetica($texto, $busqueda) {
-        $metaphone_texto = metaphone($texto);
-        $metaphone_busqueda = metaphone($busqueda);
-        
-        $similitud = 0;
-        similar_text($metaphone_texto, $metaphone_busqueda, $similitud);
-        
-        return $similitud / 100;
-    }
-    
-    private function busqueda_subcadena_tolerante($texto, $busqueda) {
-        $longitud_busqueda = strlen($busqueda);
-        $longitud_texto = strlen($texto);
-        
-        if ($longitud_busqueda > $longitud_texto) return 0;
-        
-        for ($i = 0; $i <= $longitud_texto - $longitud_busqueda; $i++) {
-            $subcadena = substr($texto, $i, $longitud_busqueda);
-            $similitud = 0;
-            similar_text($subcadena, $busqueda, $similitud);
-            
-            if ($similitud >= 80) return $similitud / 100;
-        }
-        
-        return 0;
-    }
-    
-    private function es_coincidencia_similar($palabra1, $palabra2) {
-        if ($palabra1 === $palabra2) return true;
-        
-        $similitud = 0;
-        similar_text($palabra1, $palabra2, $similitud);
-        
-        return $similitud >= 80;
-    }
-    
-    private function get_sinonimos_padecimiento($padecimiento) {
-        $sinonimos = array(
-            'cáncer' => array('cancer', 'tumor', 'neoplasia', 'malignidad'),
-            'dolor de cabeza' => array('cefalea', 'migraña', 'jaqueca', 'dolor cabeza', 'dolor de cabezas'),
-            'estrés' => array('estres', 'tension', 'nervios', 'agobio'),
-            'ansiedad' => array('angustia', 'nerviosismo', 'inquietud', 'desasosiego'),
-            'insomnio' => array('desvelo', 'no puedo dormir', 'problemas de sueño', 'dificultad para dormir'),
-            'fatiga' => array('cansancio', 'agotamiento', 'debilidad', 'desgano'),
-            'gripe' => array('influenza', 'resfriado', 'catarro', 'constipado'),
-            'diabetes' => array('azucar alta', 'glucosa alta'),
-            'hipertensión' => array('presion alta', 'tension alta', 'presion arterial alta'),
-            'artritis' => array('dolor articular', 'inflamacion articular'),
-            'depresión' => array('tristeza', 'desanimo', 'melancolia', 'desesperanza')
-        );
-        
-        return isset($sinonimos[$padecimiento]) ? $sinonimos[$padecimiento] : array();
-    }
-    
-    private function generar_resumen_analisis_mejorado($categorias, $padecimientos) {
-        if (empty($categorias)) return "No se detectaron padecimientos específicos en la descripción.";
-        
-        $total_categorias = count($categorias);
-        $total_padecimientos = count($padecimientos);
-        $confianza_promedio = 0;
-        
-        $padecimientos_principales = array();
-        foreach (array_slice($padecimientos, 0, 5) as $padecimiento) {
-            $padecimientos_principales[] = $padecimiento['padecimiento'] . " (" . round($padecimiento['confianza'] * 100) . "%)";
-            $confianza_promedio += $padecimiento['confianza'];
-        }
-        
-        $confianza_promedio = $total_padecimientos > 0 ? $confianza_promedio / $total_padecimientos : 0;
-        
-        return sprintf("Se detectaron %d padecimientos en %d categorías (confianza promedio: %d%%). Principales: %s",
-            $total_padecimientos, $total_categorias, round($confianza_promedio * 100), implode(', ', $padecimientos_principales));
-    }
-    
-    // MÉTODOS RESTANTES
+    // MÉTODOS RESTANTES (sin cambios significativos)
     private function call_deepseek_api($prompt) {
         if (empty($this->settings['api_key'])) return new WP_Error('no_api_key', __('API no configurada', 'wc-ai-homeopathic-chat'));
         
@@ -1458,9 +712,7 @@ class WC_AI_Homeopathic_Chat {
                 <div class="wc-ai-chat-header">
                     <div class="wc-ai-chat-header-info">
                         <div class="wc-ai-chat-avatar">
-
                             <img src="<?php echo esc_url(WC_AI_HOMEOPATHIC_CHAT_PLUGIN_URL . 'assets/image/ai-bot-doctor.png'); ?>" alt="ai avatar" width="36" height="36">
-
                         </div>
                         <div class="wc-ai-chat-title">
                             <h4><?php esc_html_e('Asesor Homeopático', 'wc-ai-homeopathic-chat'); ?></h4>
@@ -1561,25 +813,51 @@ class WC_AI_Homeopathic_Chat {
         register_setting('wc_ai_homeopathic_chat_settings', 'wc_ai_homeopathic_chat_floating');
         register_setting('wc_ai_homeopathic_chat_settings', 'wc_ai_homeopathic_chat_products');
         register_setting('wc_ai_homeopathic_chat_settings', 'wc_ai_homeopathic_chat_pages');
+        register_setting('wc_ai_homeopathic_chat_settings', 'wc_ai_homeopathic_chat_learning');
     }
     
     public function add_admin_menu() {
         add_options_page('WC AI Homeopathic Chat', 'Homeopathic Chat', 'manage_options', 'wc-ai-homeopathic-chat', array($this, 'options_page'));
+        
+        // Añadir submenú para estadísticas de aprendizaje
+        add_submenu_page(
+            'options-general.php',
+            'WC AI Chat Learning',
+            'Chat Learning',
+            'manage_options',
+            'wc-ai-chat-learning',
+            array($this, 'learning_stats_page')
+        );
     }
     
     public function options_page() {
+        // Obtener padecimientos de la clase de soluciones
+        $padecimientos_humanos = $this->solutions_methods->get_padecimientos_map();
         $total_padecimientos = 0;
-        foreach ($this->padecimientos_humanos as $categoria => $padecimientos) $total_padecimientos += count($padecimientos);
+        foreach ($padecimientos_humanos as $categoria => $padecimientos) $total_padecimientos += count($padecimientos);
+        
+        // Obtener estadísticas de aprendizaje
+        $learning_stats = $this->learning_engine->get_learning_stats();
+        $symptom_stats = $this->symptoms_db->get_symptom_stats();
         ?>
         <div class="wrap">
             <h1><?php esc_html_e('Configuración del Chat Homeopático', 'wc-ai-homeopathic-chat'); ?></h1>
+            
             <div class="card">
                 <h3><?php esc_html_e('Sistema de Análisis de Síntomas - VERSIÓN 2.5.3', 'wc-ai-homeopathic-chat'); ?></h3>
                 <p><?php esc_html_e('Sistema mejorado con detección avanzada de productos homeopáticos y respuestas enfocadas.', 'wc-ai-homeopathic-chat'); ?></p>
-                <p><strong><?php esc_html_e('Padecimientos configurados:', 'wc-ai-homeopathic-chat'); ?></strong> <?php echo $total_padecimientos; ?> en <?php echo count($this->padecimientos_humanos); ?> categorías</p>
+                <p><strong><?php esc_html_e('Padecimientos configurados:', 'wc-ai-homeopathic-chat'); ?></strong> <?php echo $total_padecimientos; ?> en <?php echo count($padecimientos_humanos); ?> categorías</p>
                 <p><strong><?php esc_html_e('Detección de productos:', 'wc-ai-homeopathic-chat'); ?></strong> 6 estrategias de búsqueda mejoradas</p>
                 <p><strong><?php esc_html_e('Respuestas enfocadas:', 'wc-ai-homeopathic-chat'); ?></strong> Muestra solo productos mencionados cuando el usuario pregunta específicamente</p>
                 <p><strong><?php esc_html_e('Efecto de escritura:', 'wc-ai-homeopathic-chat'); ?></strong> Mensajes aparecen palabra por palabra</p>
+                
+                <h4><?php esc_html_e('Estadísticas de Aprendizaje:', 'wc-ai-homeopathic-chat'); ?></h4>
+                <p><strong><?php esc_html_e('Sugerencias totales:', 'wc-ai-homeopathic-chat'); ?></strong> <?php echo $learning_stats['total_suggestions']; ?></p>
+                <p><strong><?php esc_html_e('Sugerencias pendientes:', 'wc-ai-homeopathic-chat'); ?></strong> <?php echo $learning_stats['pending_suggestions']; ?></p>
+                <p><strong><?php esc_html_e('Síntomas en base de datos:', 'wc-ai-homeopathic-chat'); ?></strong> <?php echo $symptom_stats['total_symptoms']; ?></p>
+                <p><strong><?php esc_html_e('Relaciones síntomas-productos:', 'wc-ai-homeopathic-chat'); ?></strong> <?php echo $symptom_stats['total_relations']; ?></p>
+                
+                <p><a href="<?php echo admin_url('options-general.php?page=wc-ai-chat-learning'); ?>" class="button"><?php esc_html_e('Ver más estadísticas', 'wc-ai-homeopathic-chat'); ?></a></p>
             </div>
             
             <form method="post" action="options.php">
@@ -1607,10 +885,11 @@ class WC_AI_Homeopathic_Chat {
                     </div>
                     <div class="wc-ai-settings-column">
                         <div class="card">
-                            <h2><?php esc_html_e('Configuración de WhatsApp', 'wc-ai-homeopathic-chat'); ?></h2>
+                            <h2><?php esc_html_e('Configuración Avanzada', 'wc-ai-homeopathic-chat'); ?></h2>
                             <table class="form-table">
                                 <tr><th scope="row"><label for="wc_ai_homeopathic_chat_whatsapp"><?php esc_html_e('Número de WhatsApp', 'wc-ai-homeopathic-chat'); ?></label></th><td><input type="text" id="wc_ai_homeopathic_chat_whatsapp" name="wc_ai_homeopathic_chat_whatsapp" value="<?php echo esc_attr($this->settings['whatsapp_number']); ?>" class="regular-text" placeholder="+521234567890" /></td></tr>
                                 <tr><th scope="row"><label for="wc_ai_homeopathic_chat_whatsapp_message"><?php esc_html_e('Mensaje Predeterminado', 'wc-ai-homeopathic-chat'); ?></label></th><td><textarea id="wc_ai_homeopathic_chat_whatsapp_message" name="wc_ai_homeopathic_chat_whatsapp_message" class="large-text" rows="3"><?php echo esc_textarea($this->settings['whatsapp_message']); ?></textarea></td></tr>
+                                <tr><th scope="row"><?php esc_html_e('Aprendizaje Automático', 'wc-ai-homeopathic-chat'); ?></th><td><label><input type="checkbox" name="wc_ai_homeopathic_chat_learning" value="1" <?php checked($this->settings['enable_learning'], true); ?> /> <?php esc_html_e('Habilitar aprendizaje automático', 'wc-ai-homeopathic-chat'); ?></label></td></tr>
                             </table>
                         </div>
                     </div>
@@ -1618,14 +897,98 @@ class WC_AI_Homeopathic_Chat {
                 <?php submit_button(); ?>
             </form>
         </div>
-        <style>.wc-ai-chat-settings-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(350px,1fr));gap:20px;margin:20px 0}.card{background:#fff;padding:20px;border:1px solid #ccd0d4;border-radius:4px}</style>
+        <style>
+        .wc-ai-chat-settings-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(350px,1fr));gap:20px;margin:20px 0}
+        .card{background:#fff;padding:20px;border:1px solid #ccd0d4;border-radius:4px}
+        .wc-ai-stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin:20px 0}
+        .wc-ai-stat-card{background:#f8f9fa;padding:15px;border-left:4px solid #667eea;border-radius:4px}
+        .wc-ai-stat-number{font-size:24px;font-weight:bold;color:#667eea}
+        .wc-ai-stat-label{font-size:14px;color:#666}
+        </style>
+        <?php
+    }
+    
+    public function learning_stats_page() {
+        // Obtener estadísticas
+        $learning_stats = $this->learning_engine->get_learning_stats();
+        $symptom_stats = $this->symptoms_db->get_symptom_stats();
+        $pending_count = $this->learning_engine->get_pending_suggestions_count();
+        ?>
+        <div class="wrap">
+            <h1><?php esc_html_e('Estadísticas de Aprendizaje del Chat', 'wc-ai-homeopathic-chat'); ?></h1>
+            
+            <div class="card">
+                <h2><?php esc_html_e('Resumen General', 'wc-ai-homeopathic-chat'); ?></h2>
+                
+                <div class="wc-ai-stats-grid">
+                    <div class="wc-ai-stat-card">
+                        <div class="wc-ai-stat-number"><?php echo $learning_stats['total_suggestions']; ?></div>
+                        <div class="wc-ai-stat-label"><?php esc_html_e('Sugerencias Totales', 'wc-ai-homeopathic-chat'); ?></div>
+                    </div>
+                    
+                    <div class="wc-ai-stat-card">
+                        <div class="wc-ai-stat-number"><?php echo $pending_count; ?></div>
+                        <div class="wc-ai-stat-label"><?php esc_html_e('Sugerencias Pendientes', 'wc-ai-homeopathic-chat'); ?></div>
+                    </div>
+                    
+                    <div class="wc-ai-stat-card">
+                        <div class="wc-ai-stat-number"><?php echo $learning_stats['approved_suggestions']; ?></div>
+                        <div class="wc-ai-stat-label"><?php esc_html_e('Sugerencias Aprobadas', 'wc-ai-homeopathic-chat'); ?></div>
+                    </div>
+                    
+                    <div class="wc-ai-stat-card">
+                        <div class="wc-ai-stat-number"><?php echo $learning_stats['auto_approved_suggestions']; ?></div>
+                        <div class="wc-ai-stat-label"><?php esc_html_e('Auto Aprobadas', 'wc-ai-homeopathic-chat'); ?></div>
+                    </div>
+                </div>
+                
+                <div class="wc-ai-stats-grid" style="margin-top: 20px;">
+                    <div class="wc-ai-stat-card">
+                        <div class="wc-ai-stat-number"><?php echo $symptom_stats['total_symptoms']; ?></div>
+                        <div class="wc-ai-stat-label"><?php esc_html_e('Síntomas Registrados', 'wc-ai-homeopathic-chat'); ?></div>
+                    </div>
+                    
+                    <div class="wc-ai-stat-card">
+                        <div class="wc-ai-stat-number"><?php echo $symptom_stats['total_relations']; ?></div>
+                        <div class="wc-ai-stat-label"><?php esc_html_e('Relaciones Síntomas-Productos', 'wc-ai-homeopathic-chat'); ?></div>
+                    </div>
+                    
+                    <div class="wc-ai-stat-card">
+                        <div class="wc-ai-stat-number"><?php echo $symptom_stats['products_with_symptoms']; ?></div>
+                        <div class="wc-ai-stat-label"><?php esc_html_e('Productos con Síntomas', 'wc-ai-homeopathic-chat'); ?></div>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 30px;">
+                    <h3><?php esc_html_e('Acciones', 'wc-ai-homeopathic-chat'); ?></h3>
+                    <form method="post" action="">
+                        <?php wp_nonce_field('wc_ai_chat_learning_actions', 'wc_ai_chat_learning_nonce'); ?>
+                        <p>
+                            <button type="submit" name="auto_approve_now" class="button button-primary">
+                                <?php esc_html_e('Aprobar Sugerencias Automáticamente', 'wc-ai-homeopathic-chat'); ?>
+                            </button>
+                            <span class="description"><?php esc_html_e('Aprueba sugerencias con alta confianza (>90%)', 'wc-ai-homeopathic-chat'); ?></span>
+                        </p>
+                    </form>
+                    
+                    <?php
+                    if (isset($_POST['auto_approve_now']) && wp_verify_nonce($_POST['wc_ai_chat_learning_nonce'], 'wc_ai_chat_learning_actions')) {
+                        $approved = $this->learning_engine->auto_approve_high_confidence_suggestions();
+                        echo '<div class="notice notice-success"><p>' . sprintf(esc_html__('Se aprobaron %d sugerencias automáticamente.', 'wc-ai-homeopathic-chat'), $approved) . '</p></div>';
+                    }
+                    ?>
+                </div>
+            </div>
+        </div>
         <?php
     }
     
     public function add_plugin_action_links($links) {
         $settings_link = '<a href="' . admin_url('options-general.php?page=wc-ai-homeopathic-chat') . '">' . 
                         __('Configuración', 'wc-ai-homeopathic-chat') . '</a>';
-        array_unshift($links, $settings_link);
+        $learning_link = '<a href="' . admin_url('options-general.php?page=wc-ai-chat-learning') . '">' . 
+                        __('Aprendizaje', 'wc-ai-homeopathic-chat') . '</a>';
+        array_unshift($links, $learning_link, $settings_link);
         return $links;
     }
     
