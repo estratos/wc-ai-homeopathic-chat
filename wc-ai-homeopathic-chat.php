@@ -108,17 +108,17 @@ class WC_AI_Homeopathic_Chat
     private function initialize_classes()
     {
         // Si las clases no existen, crear versiones básicas
-        if (!class_exists('WC_AI_Solutions_Methods')) {
+        if (!class_exists('WC_AI_Chat_Solutions_Methods')) {
             require_once __DIR__ . '/includes/class-solutions-methods.php';
         }
         
-        if (!class_exists('WC_AI_Prompt_Build')) {
+        if (!class_exists('WC_AI_Chat_Prompt_Build')) {
             require_once __DIR__ . '/includes/class-prompt-build.php';
         }
         
         // Inicializar clases
-        $this->solutions_methods = new WC_AI_Solutions_Methods($this->padecimientos_humanos);
-        $this->prompt_build = new WC_AI_Prompt_Build();
+        $this->solutions_methods = new WC_AI_Chat_Solutions_Methods($this->padecimientos_humanos);
+        $this->prompt_build = new WC_AI_Chat_Prompt_Build();
         
         // Clases opcionales
         if (class_exists('WC_AI_Chat_Solutions_DB')) {
