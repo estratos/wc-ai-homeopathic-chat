@@ -53,8 +53,8 @@ function wc_ai_homeopathic_chat_woocommerce_missing_notice() {
 function wc_ai_homeopathic_chat_load_classes() {
     // Cargar todas las clases requeridas
     $required_classes = array(
-        'class-solutions-methods.php'    => 'WC_AI_Solutions_Methods',
-        'class-prompt-build.php'         => 'WC_AI_Prompt_Build',
+        'class-solutions-methods.php'    => 'WC_AI_Chat_Solutions_Methods',
+        'class-prompt-build.php'         => 'WC_AI_Chat_Prompt_Build',
         'class-chat-learning-engine.php' => 'WC_AI_Chat_Learning_Engine',
         'class-chat-solutions-db.php'    => 'WC_AI_Chat_Solutions_DB'
     );
