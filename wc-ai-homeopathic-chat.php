@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Plugin Name: WC AI Homeopathic Chat
  * Plugin URI: https://github.com/estratos/wc-ai-homeopathic-chat
@@ -22,35 +23,38 @@ if (!defined('ABSPATH')) {
 // Verificar si WooCommerce está activo ANTES de definir constantes
 add_action('plugins_loaded', 'wc_ai_homeopathic_chat_init');
 
-function wc_ai_homeopathic_chat_init() {
+function wc_ai_homeopathic_chat_init()
+{
     if (!class_exists('WooCommerce')) {
         add_action('admin_notices', 'wc_ai_homeopathic_chat_woocommerce_missing_notice');
         return;
     }
-    
+
     // Definir constantes solo si WooCommerce está activo
     define('WC_AI_HOMEOPATHIC_CHAT_VERSION', '3.0.0');
     define('WC_AI_HOMEOPATHIC_CHAT_PLUGIN_URL', plugin_dir_url(__FILE__));
     define('WC_AI_HOMEOPATHIC_CHAT_PLUGIN_PATH', plugin_dir_path(__FILE__));
     define('WC_AI_HOMEOPATHIC_CHAT_CACHE_TIME', 30 * DAY_IN_SECONDS);
-    
+
     // Cargar clases auxiliares
     wc_ai_homeopathic_chat_load_classes();
-    
+
     // Inicializar el plugin
     global $wc_ai_homeopathic_chat;
     $wc_ai_homeopathic_chat = new WC_AI_Homeopathic_Chat();
 }
 
-function wc_ai_homeopathic_chat_woocommerce_missing_notice() {
-    ?>
+function wc_ai_homeopathic_chat_woocommerce_missing_notice()
+{
+?>
     <div class="notice notice-error">
         <p><strong>WC AI Homeopathic Chat:</strong> Requiere WooCommerce para funcionar. Por favor, instala y activa WooCommerce primero.</p>
     </div>
     <?php
 }
 
-function wc_ai_homeopathic_chat_load_classes() {
+function wc_ai_homeopathic_chat_load_classes()
+{
     // Cargar todas las clases requeridas
     $required_classes = array(
         'class-solutions-methods.php'    => 'WC_AI_Chat_Solutions_Methods',
@@ -77,7 +81,7 @@ class WC_AI_Homeopathic_Chat
     private $settings;
     private $padecimientos_humanos;
     private $productos_cache;
-    
+
     // Instancias de clases auxiliares
     private $solutions_methods;
     private $prompt_build;
@@ -96,7 +100,7 @@ class WC_AI_Homeopathic_Chat
         $this->initialize_classes();
         $this->initialize_hooks();
         $this->productos_cache = array();
-        
+
         // Registrar hook para procesamiento de aprendizaje
         add_action('wc_ai_homeopathic_process_learning', array($this, 'handle_process_learning'), 10, 2);
     }
@@ -111,19 +115,19 @@ class WC_AI_Homeopathic_Chat
         if (!class_exists('WC_AI_Chat_Solutions_Methods')) {
             require_once __DIR__ . '/includes/class-solutions-methods.php';
         }
-        
+
         if (!class_exists('WC_AI_Chat_Prompt_Build')) {
             require_once __DIR__ . '/includes/class-prompt-build.php';
         }
-        
+
         // Inicializar clases
         $this->solutions_methods = new WC_AI_Chat_Solutions_Methods($this->padecimientos_humanos);
         $this->prompt_build = new WC_AI_Chat_Prompt_Build();
-        
+
         // Clases opcionales
         if (class_exists('WC_AI_Chat_Solutions_DB')) {
             $this->solutions_db = new WC_AI_Chat_Solutions_DB();
-            
+
             if (class_exists('WC_AI_Chat_Learning_Engine')) {
                 $this->learning_engine = new WC_AI_Chat_Learning_Engine($this->solutions_db);
             }
@@ -176,12 +180,12 @@ class WC_AI_Homeopathic_Chat
         add_action('wp_footer', array($this, 'display_floating_chat'), 9999);
         add_action('wp_ajax_wc_ai_homeopathic_chat_send_message', array($this, 'ajax_send_message'));
         add_action('wp_ajax_nopriv_wc_ai_homeopathic_chat_send_message', array($this, 'ajax_send_message'));
-        
+
         // Hooks de administración
         add_action('admin_init', array($this, 'register_settings'));
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_filter('plugin_action_links_' . plugin_basename(__FILE__), array($this, 'add_plugin_action_links'));
-        
+
         // Hooks para aprendizaje (si está habilitado)
         if ($this->settings['enable_learning'] && $this->learning_engine) {
             add_action('wc_ai_homeopathic_chat_after_response', array($this, 'process_learning'), 10, 2);
@@ -198,12 +202,12 @@ class WC_AI_Homeopathic_Chat
             // Validación
             $this->validate_ajax_request();
             $message = $this->sanitize_message();
-            
+
             // Verificar que las clases estén inicializadas
             if (!$this->solutions_methods || !$this->prompt_build) {
                 throw new Exception(__('Error interno: Sistema no inicializado correctamente.', 'wc-ai-homeopathic-chat'));
             }
-            
+
             $cache_key = 'wc_ai_homeopathic_chat_' . md5($message);
 
             // Verificar caché
@@ -218,17 +222,17 @@ class WC_AI_Homeopathic_Chat
             // ==============================================
             // PROCESAMIENTO USANDO CLASES SEPARADAS
             // ==============================================
-            
+
             // 1. Análisis de síntomas
             $analysis = $this->solutions_methods->analizar_sintomas_mejorado($message);
-            
+
             // 2. Detección de productos
             $productos_mencionados = $this->solutions_methods->detectar_productos_en_consulta($message);
-            
+
             // 3. Estrategia de respuesta
             $mostrar_solo_productos_mencionados = $this->solutions_methods->debe_mostrar_solo_productos_mencionados($productos_mencionados, $message);
             $info_productos_mencionados = $this->solutions_methods->get_info_productos_mencionados($productos_mencionados);
-            
+
             // 4. Búsqueda de productos relevantes
             $relevant_products = "";
             if (!$mostrar_solo_productos_mencionados) {
@@ -240,15 +244,15 @@ class WC_AI_Homeopathic_Chat
 
             // 5. Construir prompt
             $prompt = $this->prompt_build->build_prompt_mejorado(
-                $message, 
-                $analysis, 
-                $relevant_products, 
-                $info_productos_mencionados, 
-                $productos_mencionados, 
+                $message,
+                $analysis,
+                $relevant_products,
+                $info_productos_mencionados,
+                $productos_mencionados,
                 $mostrar_solo_productos_mencionados,
                 'homeopatico' // Especialidad
             );
-            
+
             // 6. Llamar a la API
             $response = $this->call_deepseek_api($prompt);
 
@@ -281,7 +285,6 @@ class WC_AI_Homeopathic_Chat
                 'productos_mencionados' => $productos_mencionados,
                 'mostrar_solo_productos_mencionados' => $mostrar_solo_productos_mencionados
             ));
-            
         } catch (Exception $e) {
             wp_send_json_error($e->getMessage());
         }
@@ -296,7 +299,7 @@ class WC_AI_Homeopathic_Chat
         if (!$this->learning_engine) {
             return;
         }
-        
+
         // Ejecutar aprendizaje de manera asíncrona
         wp_schedule_single_event(time() + 2, 'wc_ai_homeopathic_process_learning', array(
             'user_message' => $user_message,
@@ -373,16 +376,16 @@ class WC_AI_Homeopathic_Chat
             'Content-Type' => 'application/json',
             'Authorization' => 'Bearer ' . $this->settings['api_key']
         );
-        
+
         $body = array(
             'model' => 'deepseek-chat',
             'messages' => array(
                 array(
-                    'role' => 'system', 
+                    'role' => 'system',
                     'content' => 'Eres un homeópata experto con amplio conocimiento en remedios homeopáticos, síntomas y tratamientos. Proporcionas recomendaciones precisas y prácticas basadas en el análisis de síntomas. Eres profesional pero accesible.'
                 ),
                 array(
-                    'role' => 'user', 
+                    'role' => 'user',
                     'content' => $prompt
                 )
             ),
@@ -395,7 +398,7 @@ class WC_AI_Homeopathic_Chat
             'body' => json_encode($body),
             'timeout' => 30
         );
-        
+
         $response = wp_remote_post($this->settings['api_url'], $args);
 
         if (is_wp_error($response)) {
@@ -446,16 +449,20 @@ class WC_AI_Homeopathic_Chat
             return;
         }
 
-        wp_enqueue_style('wc-ai-homeopathic-chat-style', 
-            WC_AI_HOMEOPATHIC_CHAT_PLUGIN_URL . 'assets/css/chat-style.css', 
-            array(), 
-            WC_AI_HOMEOPATHIC_CHAT_VERSION);
-            
-        wp_enqueue_script('wc-ai-homeopathic-chat-script', 
-            WC_AI_HOMEOPATHIC_CHAT_PLUGIN_URL . 'assets/js/chat-script.js', 
-            array('jquery'), 
-            WC_AI_HOMEOPATHIC_CHAT_VERSION, 
-            true);
+        wp_enqueue_style(
+            'wc-ai-homeopathic-chat-style',
+            WC_AI_HOMEOPATHIC_CHAT_PLUGIN_URL . 'assets/css/chat-style.css',
+            array(),
+            WC_AI_HOMEOPATHIC_CHAT_VERSION
+        );
+
+        wp_enqueue_script(
+            'wc-ai-homeopathic-chat-script',
+            WC_AI_HOMEOPATHIC_CHAT_PLUGIN_URL . 'assets/js/chat-script.js',
+            array('jquery'),
+            WC_AI_HOMEOPATHIC_CHAT_VERSION,
+            true
+        );
 
         wp_localize_script('wc-ai-homeopathic-chat-script', 'wc_ai_homeopathic_chat_params', array(
             'ajax_url' => admin_url('admin-ajax.php'),
@@ -468,11 +475,11 @@ class WC_AI_Homeopathic_Chat
             'whatsapp_number' => $this->settings['whatsapp_number'],
             'whatsapp_message' => $this->settings['whatsapp_message'],
             'api_configured' => !empty($this->settings['api_key']),
-            'colors' => array(
-                'primary' => $this->settings['color_primary'],
-                'secondary' => $this->settings['color_secondary'],
-                'scheme' => $this->settings['color_scheme']
-            )
+            'color_primary' => $this->settings['color_primary'],
+            'color_secondary' => $this->settings['color_secondary'], // AÑADIR ESTO
+            'color_scheme' => $this->settings['color_scheme'] // AÑADIR ESTO
+
+
         ));
     }
 
@@ -513,10 +520,10 @@ class WC_AI_Homeopathic_Chat
 
         $position_class = 'wc-ai-chat-position-' . $this->settings['chat_position'];
         $whatsapp_available = !empty($this->settings['whatsapp_number']);
-        ?>
-        <div id="wc-ai-homeopathic-chat-container" class="<?php echo esc_attr($position_class); ?>" 
-             data-color-primary="<?php echo esc_attr($this->settings['color_primary']); ?>"
-             data-color-secondary="<?php echo esc_attr($this->settings['color_secondary']); ?>">
+    ?>
+        <div id="wc-ai-homeopathic-chat-container" class="<?php echo esc_attr($position_class); ?>"
+            data-color-primary="<?php echo esc_attr($this->settings['color_primary']); ?>"
+            data-color-secondary="<?php echo esc_attr($this->settings['color_secondary']); ?>">
             <div id="wc-ai-chat-launcher" class="wc-ai-chat-launcher">
                 <div class="wc-ai-chat-icon">
                     <img src="<?php echo esc_url(WC_AI_HOMEOPATHIC_CHAT_PLUGIN_URL . 'assets/image/ai-bot-doctor.png'); ?>"
@@ -532,8 +539,8 @@ class WC_AI_Homeopathic_Chat
                     <div class="wc-ai-chat-header-info">
                         <div class="wc-ai-chat-avatar">
                             <div class="wc-ai-chat-avatar-icon">
-                                <img src="<?php echo esc_url(WC_AI_HOMEOPATHIC_CHAT_PLUGIN_URL . 'assets/image/ai-bot-doctor.png'); ?>" 
-                                     alt="avatar homeopático" width="36" height="36">
+                                <img src="<?php echo esc_url(WC_AI_HOMEOPATHIC_CHAT_PLUGIN_URL . 'assets/image/ai-bot-doctor.png'); ?>"
+                                    alt="avatar homeopático" width="36" height="36">
                             </div>
                         </div>
                         <div class="wc-ai-chat-title">
@@ -542,8 +549,8 @@ class WC_AI_Homeopathic_Chat
                         </div>
                     </div>
                     <div class="wc-ai-chat-actions">
-                        <button type="button" id="wc-ai-chat-close-btn" class="wc-ai-chat-close-btn" 
-                                aria-label="<?php esc_attr_e('Cerrar chat', 'wc-ai-homeopathic-chat'); ?>">
+                        <button type="button" id="wc-ai-chat-close-btn" class="wc-ai-chat-close-btn"
+                            aria-label="<?php esc_attr_e('Cerrar chat', 'wc-ai-homeopathic-chat'); ?>">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <line x1="18" y1="6" x2="6" y2="18"></line>
                                 <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -578,7 +585,7 @@ class WC_AI_Homeopathic_Chat
                 </div>
             </div>
         </div>
-        <?php
+    <?php
     }
 
     // =========================================================================
@@ -592,21 +599,21 @@ class WC_AI_Homeopathic_Chat
         register_setting('wc_ai_homeopathic_chat_settings', 'wc_ai_homeopathic_chat_api_url');
         register_setting('wc_ai_homeopathic_chat_settings', 'wc_ai_homeopathic_chat_cache_enable');
         register_setting('wc_ai_homeopathic_chat_settings', 'wc_ai_homeopathic_chat_position');
-        
+
         // Configuración de WhatsApp
         register_setting('wc_ai_homeopathic_chat_settings', 'wc_ai_homeopathic_chat_whatsapp');
         register_setting('wc_ai_homeopathic_chat_settings', 'wc_ai_homeopathic_chat_whatsapp_message');
-        
+
         // Configuración de visualización
         register_setting('wc_ai_homeopathic_chat_settings', 'wc_ai_homeopathic_chat_floating');
         register_setting('wc_ai_homeopathic_chat_settings', 'wc_ai_homeopathic_chat_products');
         register_setting('wc_ai_homeopathic_chat_settings', 'wc_ai_homeopathic_chat_pages');
-        
+
         // Configuración de colores
         register_setting('wc_ai_homeopathic_chat_settings', 'wc_ai_homeopathic_chat_color_primary');
         register_setting('wc_ai_homeopathic_chat_settings', 'wc_ai_homeopathic_chat_color_secondary');
         register_setting('wc_ai_homeopathic_chat_settings', 'wc_ai_homeopathic_chat_color_scheme');
-        
+
         // Configuración de aprendizaje
         register_setting('wc_ai_homeopathic_chat_settings', 'wc_ai_homeopathic_chat_enable_learning');
     }
@@ -620,7 +627,7 @@ class WC_AI_Homeopathic_Chat
             'wc-ai-homeopathic-chat',
             array($this, 'options_page')
         );
-        
+
         // Solo agregar submenú si hay base de datos de soluciones
         if (class_exists('WC_AI_Chat_Solutions_DB')) {
             add_submenu_page(
@@ -640,7 +647,7 @@ class WC_AI_Homeopathic_Chat
         foreach ($this->padecimientos_humanos as $categoria => $padecimientos) {
             $total_padecimientos += count($padecimientos);
         }
-        ?>
+    ?>
         <div class="wrap">
             <h1><?php esc_html_e('Configuración del Chat Homeopático', 'wc-ai-homeopathic-chat'); ?></h1>
             <div class="card">
@@ -674,7 +681,7 @@ class WC_AI_Homeopathic_Chat
                             </table>
                         </div>
                     </div>
-                    
+
                     <div class="wc-ai-settings-column">
                         <div class="card">
                             <h2><?php esc_html_e('Apariencia y Colores', 'wc-ai-homeopathic-chat'); ?></h2>
@@ -694,7 +701,7 @@ class WC_AI_Homeopathic_Chat
                                     <th scope="row"><?php esc_html_e('Mostrar en Productos', 'wc-ai-homeopathic-chat'); ?></th>
                                     <td><label><input type="checkbox" name="wc_ai_homeopathic_chat_products" value="1" <?php checked($this->settings['show_on_products'], true); ?> /> <?php esc_html_e('Mostrar en páginas de producto', 'wc-ai-homeopathic-chat'); ?></label></td>
                                 </tr>
-                                
+
                                 <!-- Configuración de Colores -->
                                 <tr>
                                     <th scope="row"><label for="wc_ai_homeopathic_chat_color_primary"><?php esc_html_e('Color Primario', 'wc-ai-homeopathic-chat'); ?></label></th>
@@ -728,7 +735,7 @@ class WC_AI_Homeopathic_Chat
                             </table>
                         </div>
                     </div>
-                    
+
                     <div class="wc-ai-settings-column">
                         <div class="card">
                             <h2><?php esc_html_e('Configuración Avanzada', 'wc-ai-homeopathic-chat'); ?></h2>
@@ -736,7 +743,8 @@ class WC_AI_Homeopathic_Chat
                                 <tr>
                                     <th scope="row"><?php esc_html_e('Habilitar Aprendizaje', 'wc-ai-homeopathic-chat'); ?></th>
                                     <td><label><input type="checkbox" name="wc_ai_homeopathic_chat_enable_learning" value="1" <?php checked($this->settings['enable_learning'], true); ?> /> <?php esc_html_e('Aprender automáticamente de las conversaciones', 'wc-ai-homeopathic-chat'); ?></label>
-                                    <p class="description"><?php esc_html_e('El sistema mejorará sus recomendaciones con el tiempo', 'wc-ai-homeopathic-chat'); ?></p></td>
+                                        <p class="description"><?php esc_html_e('El sistema mejorará sus recomendaciones con el tiempo', 'wc-ai-homeopathic-chat'); ?></p>
+                                    </td>
                                 </tr>
                                 <tr>
                                     <th scope="row"><label for="wc_ai_homeopathic_chat_whatsapp"><?php esc_html_e('Número de WhatsApp', 'wc-ai-homeopathic-chat'); ?></label></th>
@@ -760,13 +768,15 @@ class WC_AI_Homeopathic_Chat
                 gap: 20px;
                 margin: 20px 0
             }
+
             .card {
                 background: #fff;
                 padding: 20px;
                 border: 1px solid #ccd0d4;
                 border-radius: 4px;
-                box-shadow: 0 1px 1px rgba(0,0,0,.04);
+                box-shadow: 0 1px 1px rgba(0, 0, 0, .04);
             }
+
             input[type="color"] {
                 width: 50px;
                 height: 30px;
@@ -776,6 +786,7 @@ class WC_AI_Homeopathic_Chat
                 border-radius: 3px;
                 cursor: pointer;
             }
+
             .color-hex {
                 width: 100px !important;
                 font-family: monospace;
@@ -785,10 +796,22 @@ class WC_AI_Homeopathic_Chat
         <script>
             // Presets de colores para homeopatía
             const colorPresets = {
-                homeopatico: { primary: '#667eea', secondary: '#48bb78' },
-                natural: { primary: '#38a169', secondary: '#2f855a' },
-                tranquilo: { primary: '#3498db', secondary: '#2c3e50' },
-                profesional: { primary: '#2c5282', secondary: '#2d3748' }
+                homeopatico: {
+                    primary: '#667eea',
+                    secondary: '#48bb78'
+                },
+                natural: {
+                    primary: '#38a169',
+                    secondary: '#2f855a'
+                },
+                tranquilo: {
+                    primary: '#3498db',
+                    secondary: '#2c3e50'
+                },
+                profesional: {
+                    primary: '#2c5282',
+                    secondary: '#2d3748'
+                }
             };
 
             document.addEventListener('DOMContentLoaded', function() {
@@ -797,7 +820,7 @@ class WC_AI_Homeopathic_Chat
                 const colorSecondary = document.getElementById('wc_ai_homeopathic_chat_color_secondary');
                 const colorSecondaryHex = document.getElementById('wc_ai_homeopathic_chat_color_secondary_hex');
                 const colorScheme = document.getElementById('wc_ai_homeopathic_chat_color_scheme');
-                
+
                 // Sincronizar primario
                 colorPrimary.addEventListener('change', function() {
                     colorPrimaryHex.value = this.value;
@@ -809,7 +832,7 @@ class WC_AI_Homeopathic_Chat
                         colorScheme.value = '';
                     }
                 });
-                
+
                 // Sincronizar secundario
                 colorSecondary.addEventListener('change', function() {
                     colorSecondaryHex.value = this.value;
@@ -821,7 +844,7 @@ class WC_AI_Homeopathic_Chat
                         colorScheme.value = '';
                     }
                 });
-                
+
                 // Aplicar preset
                 colorScheme.addEventListener('change', function() {
                     const preset = this.value;
@@ -834,7 +857,7 @@ class WC_AI_Homeopathic_Chat
                 });
             });
         </script>
-        <?php
+    <?php
     }
 
     public function solutions_page()
@@ -843,17 +866,17 @@ class WC_AI_Homeopathic_Chat
             echo '<div class="notice notice-warning"><p>' . __('La base de datos de soluciones no está disponible.', 'wc-ai-homeopathic-chat') . '</p></div>';
             return;
         }
-        
+
         $solutions_db = new WC_AI_Chat_Solutions_DB();
         $solutions = $solutions_db->get_all_solutions();
         $stats = $solutions_db->get_solution_stats();
-        ?>
+    ?>
         <div class="wrap">
             <h1><?php esc_html_e('Soluciones Homeopáticas Aprendidas', 'wc-ai-homeopathic-chat'); ?></h1>
-            
+
             <div class="card">
                 <h3><?php esc_html_e('Base de Datos de Soluciones Homeopáticas', 'wc-ai-homeopathic-chat'); ?></h3>
-                
+
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0;">
                     <div class="stat-card">
                         <h4><?php esc_html_e('Total Soluciones', 'wc-ai-homeopathic-chat'); ?></h4>
@@ -873,7 +896,7 @@ class WC_AI_Homeopathic_Chat
                     </div>
                 </div>
             </div>
-            
+
             <?php if (empty($solutions)): ?>
                 <div class="card">
                     <p><?php esc_html_e('No hay soluciones guardadas todavía.', 'wc-ai-homeopathic-chat'); ?></p>
@@ -915,42 +938,61 @@ class WC_AI_Homeopathic_Chat
             <?php endif; ?>
         </div>
         <style>
-        .stat-card {
-            background: #f8f9fa;
-            border-left: 4px solid #48bb78;
-            padding: 15px;
-            border-radius: 4px;
-        }
-        .stat-card h4 {
-            margin: 0 0 10px 0;
-            color: #555;
-            font-size: 14px;
-            text-transform: uppercase;
-        }
-        .stat-number {
-            font-size: 24px;
-            font-weight: bold;
-            color: #48bb78;
-            margin: 0;
-        }
-        .severity-badge {
-            padding: 3px 8px;
-            border-radius: 3px;
-            font-size: 12px;
-            font-weight: bold;
-        }
-        .severity-critica { background: #dc3545; color: white; }
-        .severity-alta { background: #fd7e14; color: white; }
-        .severity-media { background: #ffc107; color: #333; }
-        .severity-baja { background: #28a745; color: white; }
+            .stat-card {
+                background: #f8f9fa;
+                border-left: 4px solid #48bb78;
+                padding: 15px;
+                border-radius: 4px;
+            }
+
+            .stat-card h4 {
+                margin: 0 0 10px 0;
+                color: #555;
+                font-size: 14px;
+                text-transform: uppercase;
+            }
+
+            .stat-number {
+                font-size: 24px;
+                font-weight: bold;
+                color: #48bb78;
+                margin: 0;
+            }
+
+            .severity-badge {
+                padding: 3px 8px;
+                border-radius: 3px;
+                font-size: 12px;
+                font-weight: bold;
+            }
+
+            .severity-critica {
+                background: #dc3545;
+                color: white;
+            }
+
+            .severity-alta {
+                background: #fd7e14;
+                color: white;
+            }
+
+            .severity-media {
+                background: #ffc107;
+                color: #333;
+            }
+
+            .severity-baja {
+                background: #28a745;
+                color: white;
+            }
         </style>
         <?php
-        
+
         if (isset($_POST['import_default_solutions_homeopathic']) && check_admin_referer('import_default_solutions_homeopathic', 'import_nonce')) {
             $imported = $solutions_db->import_default_solutions();
             if ($imported > 0) {
-                echo '<div class="updated"><p>' . 
-                    sprintf(__('Se importaron %d soluciones predeterminadas.', 'wc-ai-homeopathic-chat'), $imported) . 
+                echo '<div class="updated"><p>' .
+                    sprintf(__('Se importaron %d soluciones predeterminadas.', 'wc-ai-homeopathic-chat'), $imported) .
                     '</p></div>';
                 echo '<script>setTimeout(function(){ location.reload(); }, 1500);</script>';
             }
@@ -962,13 +1004,13 @@ class WC_AI_Homeopathic_Chat
         $settings_link = '<a href="' . admin_url('options-general.php?page=wc-ai-homeopathic-chat') . '">' .
             __('Configuración', 'wc-ai-homeopathic-chat') . '</a>';
         array_unshift($links, $settings_link);
-        
+
         if (class_exists('WC_AI_Chat_Solutions_DB')) {
             $solutions_link = '<a href="' . admin_url('options-general.php?page=wc-ai-homeopathic-solutions') . '">' .
                 __('Soluciones', 'wc-ai-homeopathic-chat') . '</a>';
             array_unshift($links, $solutions_link);
         }
-        
+
         return $links;
     }
 
@@ -978,6 +1020,6 @@ class WC_AI_Homeopathic_Chat
         <div class="error">
             <p><?php esc_html_e('WC AI Homeopathic Chat requiere WooCommerce.', 'wc-ai-homeopathic-chat'); ?></p>
         </div>
-        <?php
+<?php
     }
 }
